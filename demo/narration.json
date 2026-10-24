@@ -7,16 +7,53 @@
     "seed": 11
   },
   "scenes": [
-    { "id": "intro", "say": "This is a quick proof of concept. The UI and the BFF live in two separate repositories, and the BFF owns every validation rule. The UI doesn't keep a copy of any of them." },
-    { "id": "architecture", "say": "Here's the setup. The shell loads the order form micro frontend. Inside it sits a second micro frontend, the bank form, loaded from its own server. The rules come from the BFF's contracts endpoint, as you can see in the request log." },
-    { "id": "error-downloaded", "say": "Error path first. I'll type a five digit account number into the embedded bank form. As soon as I leave the field, the error shows up, because the browser is running the BFF's own rule." },
-    { "id": "happy-downloaded", "say": "Now the happy path. With a valid ten digit number, the order form submits everything, including the bank details from the embedded form. The BFF checks it again with the same schema, and accepts the order." },
-    { "id": "error-server", "say": "Here's the second approach. In server mode, the browser holds no rules at all. When I leave the field, the form asks the BFF's validate endpoint, and shows the very same message." },
-    { "id": "happy-server", "say": "Valid details pass the same check, and the order goes through." },
-    { "id": "bypass", "say": "What if the browser check is skipped entirely? The BFF still rejects the bad data on submit, and points to the exact field." },
-    { "id": "rule-change", "say": "Last, the BFF team changes the rule from ten digits to twelve, and redeploys only the BFF." },
-    { "id": "rule-after", "say": "After a reload, the UI enforces the new rule straight away. No micro frontend was rebuilt." },
-    { "id": "standalone", "say": "On its own, the bank form uses its own bank form contract from the BFF, separate from the order form's." },
-    { "id": "outro", "say": "So that's the idea. One source of truth in the BFF, a separate contract per micro frontend, and no published package." }
+    {
+      "id": "intro",
+      "say": "This is the final design. The BFF repo owns every schema. The UI repo links the BFF's schema folder through a pinned git submodule, and the bundler compiles it into each micro frontend. Nothing is fetched at runtime, and no package is published."
+    },
+    {
+      "id": "architecture",
+      "say": "Watch the request log. The shell loads the order form, which embeds the bank form from its own server. There's no request for any rules: they're already inside each micro frontend's code."
+    },
+    {
+      "id": "error-blur",
+      "say": "Error path. I type a five digit account number into the embedded bank form. When I leave the field, the error appears instantly, with no request, because the BFF's own rule runs in the browser."
+    },
+    {
+      "id": "conditional",
+      "say": "Now a dynamic rule. The registration number is optional for personal accounts. Switch to business, and it's required right away. Switch back, and the requirement is gone. That rule is written once, in the BFF."
+    },
+    {
+      "id": "happy",
+      "say": "Happy path. With valid details, the order form submits everything, including the bank details from the embedded form. The BFF validates again with the same schema, and accepts the order."
+    },
+    {
+      "id": "bypass",
+      "say": "Now the server check, the one that should rarely fire. I skip the browser check entirely. The BFF still rejects the bad data, and points to the exact field."
+    },
+    {
+      "id": "private-rule",
+      "say": "Some rules never reach the browser. This bank code has a valid format, so the browser accepts it. But it's on a private blocklist that lives only in the BFF, so on submit, the BFF rejects it."
+    },
+    {
+      "id": "rule-change",
+      "say": "Next, the BFF team changes a rule: account numbers become twelve digits. In production, that's a pair of pull requests: the BFF change, and a UI change that bumps the submodule. Here, the linked folder updates, and the micro frontends rebuild."
+    },
+    {
+      "id": "rule-after",
+      "say": "The embedded form now enforces twelve digits, and so does the BFF, because they compile the very same file."
+    },
+    {
+      "id": "standalone",
+      "say": "On its own, the bank form validates with its own bank form schema, built from the same shared bank details, so the dynamic rule works here too."
+    },
+    {
+      "id": "ci",
+      "say": "Finally, the checks that keep this honest in CI. Micro frontend files import only from shared. No shape is copied between them. The tests pass. And no private rule appears in any bundle."
+    },
+    {
+      "id": "outro",
+      "say": "One set of schemas, owned by the BFF, compiled into every micro frontend. Validation on blur in the browser, and the BFF always has the final say."
+    }
   ]
 }

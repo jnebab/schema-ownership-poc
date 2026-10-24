@@ -1,13 +1,14 @@
 {
-  "intro": 10.96,
-  "architecture": 13.68,
-  "error-downloaded": 11.76,
-  "happy-downloaded": 13.28,
-  "error-server": 11.52,
-  "happy-server": 4.24,
-  "bypass": 7.84,
-  "rule-change": 6.72,
-  "rule-after": 7.04,
-  "standalone": 7.44,
-  "outro": 8.56
+  "intro": 15.2,
+  "architecture": 10.88,
+  "error-blur": 12.56,
+  "conditional": 14.0,
+  "happy": 11.36,
+  "bypass": 10.08,
+  "private-rule": 12.72,
+  "rule-change": 15.6,
+  "rule-after": 7.2,
+  "standalone": 9.92,
+  "ci": 12.64,
+  "outro": 10.72
 }

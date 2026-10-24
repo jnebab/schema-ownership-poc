@@ -3,11 +3,16 @@
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
-    "build": "turbo run build",
-    "start": "npm run build && npm run start -w @bff/api",
-    "typecheck": "turbo run typecheck"
+    "start": "npm run start -w @bff/api",
+    "test": "node --test \"packages/schemas/test/*.test.ts\" \"apps/api/test/*.test.ts\"",
+    "typecheck": "tsc -p tsconfig.json",
+    "check": "node scripts/check-boundaries.mjs && node scripts/check-duplicates.ts && npm run typecheck && npm test",
+    "impact": "node scripts/impact.mjs"
   },
   "devDependencies": {
     "turbo": "2.11.10",

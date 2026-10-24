@@ -13,13 +13,13 @@
       "dom"
     ],
     "paths": {
-      "*": [
-        "./@mf-types/*"
+      "zod": [
+        "../../node_modules/zod"
       ]
     }
   },
   "include": [
     "src",
-    "@mf-types"
+    "../remotes.d.ts"
   ]
 }

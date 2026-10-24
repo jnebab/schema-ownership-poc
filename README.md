@@ -1,50 +1,84 @@
-# Schema ownership POC: the BFF owns the schemas, the MFEs use them
+# Schema sharing POC: BFF-owned schemas, compiled into Module Federation MFEs
 
-Small, local proof of concept for one architectural question:
+How can a **BFF own the form and request schemas** used by micro-frontends that live in **another repo**, without
+publishing an npm package, without duplicating schemas between MFEs, and with **on-blur validation**?
 
-> Our UI (micro-frontends with Module Federation) and our BFF live in **two different repos**. How can the
-> **BFF own** the request/response and form-validation schemas, with a shared schema plus a separate schema per
-> MFE, **without publishing an npm package**?
+`bff/` and `ui/` are two independent Turborepo monorepos, standing in for the two real repos.
 
-`bff/` and `ui/` are two independent Turborepo monorepos. They stand in for the two real repos and share **no code
-and no package**.
+- **Proof video** (2.7 min, narrated): [`demo/schema-sharing-proof.mp4`](demo/schema-sharing-proof.mp4). Every scene is asserted, so the recording is also the end-to-end test.
+- **Alternatives and best practice** (what top teams do, and every option we weighed): kept in the team's reference doc. The runtime-served-rules variant is on the branch [`alt/runtime-contracts`](https://github.com/jnebab/schema-ownership-poc/tree/alt/runtime-contracts).
 
-## The idea in five steps
+## The design in one picture
 
-1. **The BFF team writes each rule once** (`bff/packages/schemas`), for example "account number must be 10 digits".
-   - `shared.ts`: rules used by several MFEs (`BankDetails`).
-   - `order-form.ts`, `bank-form.ts`: one contract per MFE.
-2. **The BFF hosts those rules at a URL**: `GET /contracts/v1/*`, plain read-only files served by the BFF itself.
-   - They're built as a Module Federation remote by `bff/apps/contracts`.
-   - No CDN, no registry.
-3. **The MFE loads the rules in the browser** and checks the form while the user types.
-4. **The user submits.**
-5. **The BFF checks again with the same code** (`bff/apps/api`). It returns `201`, or `422` with errors per field
-   (`{ path: "bankDetails.accountNumber", message }`) that the form shows on the right input.
+```
+bff/ (BFF repo)                                   ui/ (UI repo)
+  packages/schemas/src/                             vendor/bff  ← git submodule, pinned to a BFF commit
+    shared/bank-details.ts   ← used by 2+ MFEs          (here: ../bff, the same folder)
+    order-form.ts            ← one file per MFE     apps/order-form  ─┐ "@bff/schemas": "file:…/packages/schemas"
+    bank-form.ts                                    apps/bank-form   ─┘ compiled INTO each bundle by rsbuild
+  apps/api/
+    src/server.ts            ← validates every submit with the SAME schemas
+    src/private-rules.ts     ← server-only rules (never in a bundle)
+```
 
-For developers, Module Federation's type sharing also downloads the TypeScript **types** of the contracts (a
-`@mf-types.zip` the BFF serves next to the rules), so the editor knows every field. The UI repo contains no rule.
+1. **One owner.** Every schema lives in `bff/packages/schemas`: `shared/` holds pieces two or more MFEs need, and there is one file per MFE. A shape moves to `shared/` on its second use; nobody copies it.
+2. **No package, no runtime fetch.** The UI repo pins the BFF repo as a **git submodule** and depends on its schemas folder by path (`file:` with npm, `link:` with pnpm). The bundler compiles the schemas into each MFE, so the types and the rules come from the same commit.
+3. **On-blur validation in the browser.** React Hook Form's `standardSchemaResolver` runs the BFF's schema, with `mode: 'onTouched'` (validate on first blur, then on every change).
+4. **The BFF has the final say.** Every submit is validated again with the same schema, plus private rules. For a well-behaved UI a `422` is rare: bypassed browsers, private rules, drift.
+5. **Change policy.** A BFF schema PR ships with a UI PR that bumps the submodule pin. Shape changes stay additive for one release, since rolling deploys and open tabs make "the same time" non-atomic.
 
-## Two modes, side by side
+## The parts that make it work
 
-The same form runs in either mode, and only one line differs (`ui/apps/order-form/src/OrderForm.tsx`):
-
-| `?validation=` | Where the check runs while typing | What the UI holds |
+| Concern | How | Where |
 |---|---|---|
-| `downloaded` (default) | In the browser, with the rules downloaded from the BFF | Nothing but a loader |
-| `server` | In the BFF (`POST /api/<mfe>/validate` on blur) | Nothing at all |
+| Embedded MFE (Bank Form inside order-form, host submits) | Bank fields join the host's form via `useFormContext`; `react-hook-form` is a **singleton** in the MF shared scope | `ui/apps/bank-form/src/BankFields.tsx`, `ui/apps/shared-federation.mjs` |
+| Dynamic rule (registration number required only for business) | A shared rule *function* applied last in each MFE schema, with Zod 4's `when` | `bff/packages/schemas/src/shared/bank-details.ts` |
+| Zod 4: `.extend()` / `.partial()` throw on refined schemas | `shared/` objects stay unrefined; refinements go on last | same |
+| `zod` in UI CI (the linked folder has no `node_modules`) | `zod` is a **peerDependency**; the UI aliases it to its own copy | `ui/apps/shared-federation.mjs` (`resolveFromUi`), app `tsconfig.json` `paths` |
+| Re-check a dependent field when its trigger changes | `trigger('bankDetails.registrationNumber')` on account-type change. RHF `deps` doesn't fire for an untouched select in `onTouched` mode | `BankFields.tsx` |
+| Private rules can't leak | They live in `bff/apps/api`, **outside** the linked folder; a leak scan of the built bundles is the backstop | `bff/apps/api/src/private-rules.ts`, `ui/scripts/check-no-private-rules.mjs` |
 
-In both modes the BFF validates again on submit and has the final say. The page shows how long each check took,
-so you can compare the latency.
+**On visibility:** public rules ("10 digits", conditional "required") are readable in the bundle, like all front-end code. That's fine: the BFF re-validates everything. Only rules that never run in the browser can be hidden.
 
-## MFE inside an MFE: Bank Form
+## Checks (CI)
 
-- `ui/apps/bank-form` exposes `BankFields`.
-- `ui/apps/order-form` embeds it and **submits the bank details itself** ("host submits"). That's why `BankDetails`
-  lives in the shared contract.
-- The bank fields join the host's form through `useFormContext`. For that, `react-hook-form` is a **singleton** in the
-  Module Federation shared scope; otherwise each MFE would have its own React context and the fields wouldn't connect.
-- Standalone (`localhost:3002`), Bank Form validates with **its own** `bank-form` contract.
+From `bff/`:
+
+```bash
+npm run check
+```
+
+That runs the import boundaries, the duplicate-shape check, a typecheck, and the schema and API tests.
+
+From `bff/`, to list the MFEs a change affects (for the paired UI PR):
+
+```bash
+npm run impact -- packages/schemas/src/shared/bank-details.ts
+```
+
+From `ui/`, to build every MFE and prove no private rule is in any bundle:
+
+```bash
+npm run check:leaks
+```
+
+From `ui/`, to type-check against the BFF's field names:
+
+```bash
+npx turbo run typecheck
+```
+
+Every check was run with a negative control (a deliberate violation must fail it):
+
+| Check | Deliberate violation | Result |
+|---|---|---|
+| Boundaries | An MFE importing another MFE | Fails |
+| Duplicates | A copy-pasted `BankDetails` | Flagged; `--strict` fails |
+| Leak scan | `ZZZZ` pulled into order-form | Fails |
+| Typecheck | A misspelled field | Fails with the BFF's real field list |
+| `when` test | Removing `when` | That test fails |
+
+The UI also **builds and type-checks with `bff/node_modules` removed**, which is the UI-CI situation, using only the linked source.
 
 ## Run it
 
@@ -64,7 +98,7 @@ npm install
 npm start
 ```
 
-That serves the API and `/contracts/v1` on http://localhost:4000.
+That serves the API on http://localhost:4000.
 
 Then start the UI, in a second terminal:
 
@@ -83,60 +117,44 @@ npm run dev
 The ports are:
 - shell: http://localhost:3000
 - order-form: 3001
-- bank-form: 3002
-
-Open http://localhost:3000/?validation=downloaded, then http://localhost:3000/?validation=server.
+- Bank Form standalone: http://localhost:3002
 
 Things to try:
-- **Type a short account number and leave the field.** The error comes from the BFF's rule, in both modes.
-- **Change the rule in `bff/packages/schemas/src/shared.ts`** (for example 10 to 12 digits), then rebuild and restart
-  only the BFF. Reload the page: the UI enforces the new rule **without rebuilding the UI**.
-- **Add `&bypass` to the URL** to skip the browser check on submit. The BFF still rejects bad data with field errors.
+- **A short account number:** error on blur, no request.
+- **Switch account type to Business:** the registration number becomes required.
+- **Bank code `ZZZZ`:** the browser accepts it; the BFF rejects it on submit.
+- **`?bypass`:** skips the browser check; the BFF still rejects bad data.
 
-## Demo video and end-to-end test
-
-[`demo/schema-ownership-demo.mp4`](demo/schema-ownership-demo.mp4) (2 min, narrated) shows, in a real browser:
-- the happy and error paths in both modes
-- the Bank Form MFE inside the order-form MFE
-- the BFF rejecting bad data when the browser check is bypassed
-- a 10 → 12-digit rule change shipped by redeploying **only the BFF**
-
-The recorder is also the end-to-end test: every scene asserts what must be on screen, and the run fails otherwise.
-
-Narration is generated locally with Qwen3-TTS (open source); it needs a Python env with `qwen-tts` and a CUDA torch:
+To re-record the proof video (needs ffmpeg; the narration uses local Qwen3-TTS, and a Python env with `qwen-tts` and a CUDA torch), generate the narration:
 
 ```bash
 python -I demo/tts.py
 ```
 
-Then record. This needs the BFF and the UI dev servers running, plus ffmpeg:
+Check it with Whisper:
+
+```bash
+python -I demo/check-asr.py demo/narration.json demo/audio
+```
+
+Then record:
 
 ```bash
 node demo/record.ts
 ```
 
-Local timings from the run:
-- downloaded rules: the check runs in the browser in 0–1 ms
-- server mode: a `/validate` round trip of about 3 ms on localhost (real networks add latency)
+### Two real repos
 
-## Gotchas found while building it
+In the UI repo, add the BFF repo as a pinned submodule:
 
-- **Relative `publicPath` in the contracts manifest.** The browser fetches the rule files from the *page's* origin.
-  - So each UI server (and the ingress in production) must route `/contracts` to the BFF.
-  - Without that, the rules silently fail to load, and the form falls back to BFF-only validation.
-  - The fallback worked as designed, which is exactly why it hid the problem until the recorder asserted that the rule code itself loaded.
-- **The same relative path breaks the type download.**
-  - Module Federation's type consumer can't resolve a relative URL, so the UI tells it the types URL explicitly (`BFF_CONTRACTS_TYPES`).
-  - The BFF's exposed files re-export the schemas **by relative path**, so the types zip is self-contained (the UI repo has no `@bff/schemas`).
-- **The UI's typecheck uses the BFF's field names.** Misspelling `bankDetails.accountNumber` in the UI fails `tsc` with the BFF's real field list.
-- **`react-hook-form` must be a singleton** in the shared scope, or the embedded Bank Form can't join the host's form.
-- **Clicking a button right after typing** can miss when the blur removes an error line and the layout shifts.
+```bash
+git submodule add <bff-repo-url> vendor/bff
+```
 
-## Status
+Then point each MFE at it: `"@bff/schemas": "file:../../vendor/bff/packages/schemas"`. CI checks out with submodules (for example `actions/checkout` with `submodules: true`); a private BFF repo needs a token with read access. To bump the pin in the paired UI PR, update the submodule to the latest BFF commit:
 
-- ✅ **Works:**
-  - BFF-owned schemas served at `/contracts/v1`
-  - browser and server validation from the same code
-  - MFE inside MFE
-  - type sharing with no package
-  - a passing end-to-end recording
+```bash
+git submodule update --remote vendor/bff
+```
+
+Then commit the new `vendor/bff` pointer.

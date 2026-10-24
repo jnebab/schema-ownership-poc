@@ -3,19 +3,21 @@
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
-  "workspaces": ["packages/*", "apps/*"],
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
   "scripts": {
     "dev": "turbo run dev --parallel",
     "build": "turbo run build",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "check:leaks": "turbo run build && node scripts/check-no-private-rules.mjs"
   },
   "devDependencies": {
     "turbo": "2.11.10",
     "typescript": "7.0.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
-    "playwright-core": "1.64.1",
-    "zod": "4.6.7"
-  },
-  "//zod": "Type-only: the downloaded contract types reference zod's types. The UI never imports or bundles zod."
+    "playwright-core": "1.64.1"
+  }
 }

@@ -1,29 +1,30 @@
 import { useState, type FormEvent } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
-import { applyIssues, contractResolver, currentMode, serverResolver, timed, type Issue } from '@ui/form-kit'
-// Types only, from the BFF's contract: the editor knows every field, but no rule is copied into this repo.
-import type { PlaceOrderRequest } from 'bff_contracts/order-form'
+import { applyIssues, schemaResolver, timed, type Issue } from '@ui/form-kit'
+// The BFF's schema for THIS MFE, linked from the BFF repo and compiled into this bundle: no runtime fetch,
+// and the type and the rules come from the same commit.
+import { OrderForm as OrderFormSchema, type OrderForm as OrderFormValues } from '@bff/schemas/order-form'
 // Another MFE, embedded: Module Federation loads it from the Bank Form app at runtime.
 import BankFields from 'bank_form/BankFields'
 
 export default function OrderForm () {
-  const mode = currentMode()
   const [lastCheckMs, setLastCheckMs] = useState<number | null>(null)
   const [result, setResult] = useState('')
 
-  // The ONE line that differs between the two approaches.
-  const rules = mode === 'server'
-    ? serverResolver<PlaceOrderRequest>('/api/order-form/validate')
-    : contractResolver<PlaceOrderRequest>(() => import('bff_contracts/order-form').then(m => m.PlaceOrderRequest))
-
-  const form = useForm<PlaceOrderRequest>({
-    mode: 'onBlur',
-    resolver: timed(rules, setLastCheckMs),
-    defaultValues: { item: '', quantity: 1, bankDetails: { accountHolder: '', accountNumber: '', bankCode: '' } }
+  const form = useForm<OrderFormValues>({
+    // Validate a field the first time the user leaves it, then on every change.
+    mode: 'onTouched',
+    resolver: timed(schemaResolver(OrderFormSchema), setLastCheckMs),
+    defaultValues: {
+      item: '',
+      quantity: 1,
+      bankDetails: { accountType: 'personal', accountHolder: '', accountNumber: '', bankCode: '', registrationNumber: '' }
+    }
   })
 
-  // Submit always goes to the BFF, which validates again with the same schema and has the final say.
-  async function submit (values: PlaceOrderRequest) {
+  // Submit always goes to the BFF, which validates again with the same schema plus private rules. For a
+  // well-behaved UI a 422 is rare; when it happens, the messages land on the right inputs.
+  async function submit (values: OrderFormValues) {
     setResult('')
     const res = await fetch('/api/order-form/orders', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(values) })
     if (res.status === 201) { const { orderId } = await res.json() as { orderId: string }; setResult(`Order accepted (${orderId.slice(0, 8)})`); return }
@@ -31,7 +32,7 @@ export default function OrderForm () {
     setResult(`Unexpected response ${res.status}`)
   }
 
-  // ?bypass skips the browser-side check on submit, to prove the BFF still catches everything on its own.
+  // ?bypass skips the browser check on submit, to prove the BFF still catches everything on its own.
   const bypass = new URLSearchParams(location.search).has('bypass')
   const onSubmit = bypass ? (e: FormEvent) => { e.preventDefault(); void submit(form.getValues()) } : form.handleSubmit(submit)
 
@@ -40,7 +41,7 @@ export default function OrderForm () {
     <section style={{ border: '1px solid #ccc', borderRadius: 12, padding: 16 }}>
       <h2 style={{ marginTop: 0, fontSize: 18 }}>Order form <small style={{ color: '#888' }}>(order-form MFE)</small></h2>
       <p data-testid="mode" style={{ fontSize: 13, margin: '0 0 12px' }}>
-        Validation: <strong>{mode}</strong>{lastCheckMs !== null && <> · last check took <strong data-testid="latency">{lastCheckMs} ms</strong></>}
+        Schema: <strong>@bff/schemas/order-form</strong> (compiled in){lastCheckMs !== null && <> · last check took <strong data-testid="latency">{lastCheckMs} ms</strong></>}
       </p>
       <FormProvider {...form}>
         <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>

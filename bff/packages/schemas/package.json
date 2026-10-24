@@ -3,10 +3,16 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "description": "BFF-owned form and request schemas. Never published: the UI repo links this folder from a pinned git submodule and compiles it into each MFE bundle.",
   "exports": {
-    "./shared": "./src/shared.ts",
-    "./bank-form": "./src/bank-form.ts",
-    "./order-form": "./src/order-form.ts"
+    "./shared/bank-details": "./src/shared/bank-details.ts",
+    "./order-form": "./src/order-form.ts",
+    "./bank-form": "./src/bank-form.ts"
   },
-  "dependencies": { "zod": "4.6.7" }
+  "peerDependencies": {
+    "zod": "^4.6.0"
+  },
+  "devDependencies": {
+    "zod": "4.6.7"
+  }
 }

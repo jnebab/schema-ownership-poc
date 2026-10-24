@@ -10,15 +10,11 @@ class Boundary extends Component<{ children: ReactNode }, { error: string | null
 }
 
 function Shell () {
-  const mode = new URLSearchParams(location.search).get('validation') === 'server' ? 'server' : 'downloaded'
   return (
     <main style={{ fontFamily: 'system-ui', maxWidth: 560, margin: '24px auto', padding: 16, display: 'grid', gap: 16 }}>
       <header>
         <h1 style={{ fontSize: 22, margin: 0 }}>Shell <small style={{ color: '#888', fontSize: 14 }}>(host)</small></h1>
-        <nav style={{ display: 'flex', gap: 12, fontSize: 14 }}>
-          <a href="/?validation=downloaded" aria-current={mode === 'downloaded'}>Rules downloaded from the BFF</a>
-          <a href="/?validation=server" aria-current={mode === 'server'}>Rules only in the BFF</a>
-        </nav>
+        <p style={{ fontSize: 13, margin: '4px 0 0' }}>BFF-owned schemas, compiled into each MFE from the linked BFF repo.</p>
       </header>
       <Boundary><Suspense fallback={<p>Loading order form…</p>}><OrderForm /></Suspense></Boundary>
     </main>
