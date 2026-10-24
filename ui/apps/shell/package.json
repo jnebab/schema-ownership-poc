@@ -1,0 +1,23 @@
+{
+  "name": "@ui/shell",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "rsbuild dev",
+    "build": "rsbuild build",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ui/form-kit": "*",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "react-hook-form": "7.91.0"
+  },
+  "devDependencies": {
+    "@module-federation/enhanced": "2.9.2",
+    "@module-federation/rsbuild-plugin": "2.9.2",
+    "@rsbuild/core": "2.2.14",
+    "@rsbuild/plugin-react": "2.1.1"
+  }
+}

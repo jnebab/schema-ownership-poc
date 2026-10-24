@@ -1,0 +1,17 @@
+{
+  "name": "bff-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "build": "turbo run build",
+    "start": "npm run build && npm run start -w @bff/api",
+    "typecheck": "turbo run typecheck"
+  },
+  "devDependencies": {
+    "turbo": "2.11.10",
+    "typescript": "7.0.2",
+    "@types/node": "26.6.5"
+  }
+}
