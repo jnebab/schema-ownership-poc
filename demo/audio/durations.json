@@ -1,0 +1,13 @@
+{
+  "intro": 10.96,
+  "architecture": 13.68,
+  "error-downloaded": 11.76,
+  "happy-downloaded": 13.28,
+  "error-server": 11.52,
+  "happy-server": 4.24,
+  "bypass": 7.84,
+  "rule-change": 6.72,
+  "rule-after": 7.04,
+  "standalone": 7.44,
+  "outro": 8.56
+}

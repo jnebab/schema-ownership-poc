@@ -4,3 +4,5 @@ dist/
 .mf/
 @mf-types/
 *.log
+demo/out/
+demo/audio/*.wav

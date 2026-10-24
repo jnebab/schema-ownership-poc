@@ -13,7 +13,7 @@ export default function BankFields () {
   const e = errors.bankDetails
   return (
     <fieldset style={{ border: '1px dashed #888', borderRadius: 8, padding: 12, display: 'grid', gap: 8 }}>
-      <legend>Bank details <small style={{ color: '#888' }}>(Bank Form MFE, embedded)</small></legend>
+      <legend>Bank details <small style={{ color: '#888' }}>(Bank Form MFE)</small></legend>
       <Field label="Account holder" error={e?.accountHolder?.message}><input {...register('bankDetails.accountHolder')} data-testid="accountHolder" /></Field>
       <Field label="Account number" error={e?.accountNumber?.message}><input {...register('bankDetails.accountNumber')} data-testid="accountNumber" inputMode="numeric" /></Field>
       <Field label="Bank code" error={e?.bankCode?.message}><input {...register('bankDetails.bankCode')} data-testid="bankCode" /></Field>

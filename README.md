@@ -93,18 +93,50 @@ Things to try:
   only the BFF. Reload the page: the UI enforces the new rule **without rebuilding the UI**.
 - **Add `&bypass` to the URL** to skip the browser check on submit. The BFF still rejects bad data with field errors.
 
-## Status (honest)
+## Demo video and end-to-end test
+
+[`demo/schema-ownership-demo.mp4`](demo/schema-ownership-demo.mp4) (2 min, narrated) shows, in a real browser:
+- the happy and error paths in both modes
+- the Bank Form MFE inside the order-form MFE
+- the BFF rejecting bad data when the browser check is bypassed
+- a 10 → 12-digit rule change shipped by redeploying **only the BFF**
+
+The recorder is also the end-to-end test: every scene asserts what must be on screen, and the run fails otherwise.
+
+Narration is generated locally with Qwen3-TTS (open source); it needs a Python env with `qwen-tts` and a CUDA torch:
+
+```bash
+python -I demo/tts.py
+```
+
+Then record. This needs the BFF and the UI dev servers running, plus ffmpeg:
+
+```bash
+node demo/record.ts
+```
+
+Local timings from the run:
+- downloaded rules: the check runs in the browser in 0–1 ms
+- server mode: a `/validate` round trip of about 3 ms on localhost (real networks add latency)
+
+## Gotchas found while building it
+
+- **Relative `publicPath` in the contracts manifest.** The browser fetches the rule files from the *page's* origin.
+  - So each UI server (and the ingress in production) must route `/contracts` to the BFF.
+  - Without that, the rules silently fail to load, and the form falls back to BFF-only validation.
+  - The fallback worked as designed, which is exactly why it hid the problem until the recorder asserted that the rule code itself loaded.
+- **The same relative path breaks the type download.**
+  - Module Federation's type consumer can't resolve a relative URL, so the UI tells it the types URL explicitly (`BFF_CONTRACTS_TYPES`).
+  - The BFF's exposed files re-export the schemas **by relative path**, so the types zip is self-contained (the UI repo has no `@bff/schemas`).
+- **The UI's typecheck uses the BFF's field names.** Misspelling `bankDetails.accountNumber` in the UI fails `tsc` with the BFF's real field list.
+- **`react-hook-form` must be a singleton** in the shared scope, or the embedded Bank Form can't join the host's form.
+- **Clicking a button right after typing** can miss when the blur removes an error line and the layout shifts.
+
+## Status
 
 - ✅ **Works:**
-  - The BFF serves the contracts.
-  - `/validate` and submit validate with the same schemas.
-  - Shell → order-form → embedded Bank Form load through Module Federation.
-- ⚠️ **Open: type sharing.**
-  - The BFF generates and serves `@mf-types.zip` correctly.
-  - The UI's type **consumption** isn't landing the files where TypeScript looks yet.
-  - Generating types for the MFEs' own exposes fails until it does.
-  - This only affects editor and type-check support, not the runtime behaviour.
-- **Not yet:**
-  - automated browser tests of both modes
-  - the latency comparison numbers
-  - the rule-change demo as a scripted check
+  - BFF-owned schemas served at `/contracts/v1`
+  - browser and server validation from the same code
+  - MFE inside MFE
+  - type sharing with no package
+  - a passing end-to-end recording

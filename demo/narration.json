@@ -1,0 +1,22 @@
+{
+  "voice": {
+    "design_model": "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign",
+    "clone_model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "instruct": "A friendly software engineer in their thirties walking teammates through a live demo. Clear, warm, neutral international English accent, medium pitch, steady relaxed pace, conversational and confident, never salesy.",
+    "reference_text": "Let me walk you through how this works. It's simpler than it looks, and I'll show each step as we go.",
+    "seed": 11
+  },
+  "scenes": [
+    { "id": "intro", "say": "This is a quick proof of concept. The UI and the BFF live in two separate repositories, and the BFF owns every validation rule. The UI doesn't keep a copy of any of them." },
+    { "id": "architecture", "say": "Here's the setup. The shell loads the order form micro frontend. Inside it sits a second micro frontend, the bank form, loaded from its own server. The rules come from the BFF's contracts endpoint, as you can see in the request log." },
+    { "id": "error-downloaded", "say": "Error path first. I'll type a five digit account number into the embedded bank form. As soon as I leave the field, the error shows up, because the browser is running the BFF's own rule." },
+    { "id": "happy-downloaded", "say": "Now the happy path. With a valid ten digit number, the order form submits everything, including the bank details from the embedded form. The BFF checks it again with the same schema, and accepts the order." },
+    { "id": "error-server", "say": "Here's the second approach. In server mode, the browser holds no rules at all. When I leave the field, the form asks the BFF's validate endpoint, and shows the very same message." },
+    { "id": "happy-server", "say": "Valid details pass the same check, and the order goes through." },
+    { "id": "bypass", "say": "What if the browser check is skipped entirely? The BFF still rejects the bad data on submit, and points to the exact field." },
+    { "id": "rule-change", "say": "Last, the BFF team changes the rule from ten digits to twelve, and redeploys only the BFF." },
+    { "id": "rule-after", "say": "After a reload, the UI enforces the new rule straight away. No micro frontend was rebuilt." },
+    { "id": "standalone", "say": "On its own, the bank form uses its own bank form contract from the BFF, separate from the order form's." },
+    { "id": "outro", "say": "So that's the idea. One source of truth in the BFF, a separate contract per micro frontend, and no published package." }
+  ]
+}
