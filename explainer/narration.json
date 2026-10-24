@@ -1,0 +1,141 @@
+{
+  "voice": {
+    "reuse_ref": "../demo/audio/voice_ref.wav",
+    "reference_text": "Let me walk you through how this works. It's simpler than it looks, and I'll show each step as we go.",
+    "clone_model": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "seed": 11
+  },
+  "gap": 0.6,
+  "beats": [
+    {
+      "id": "hook",
+      "part": "intro",
+      "text": "Two repositories. One rule. An account number must be exactly ten digits. The BFF has to enforce it, and so does every form in the UI. So where should that rule live?"
+    },
+    {
+      "id": "problem",
+      "part": "intro",
+      "text": "Copy it into both, and one day someone changes one copy and forgets the other. Publish it as a package, and you need a registry and a release process, which our team ruled out. So we did something simpler."
+    },
+    {
+      "id": "idea",
+      "part": "intro",
+      "text": "Here is the whole idea. The BFF repo owns every schema. The UI repo pins the BFF repo as a git submodule, links its schema folder, and the bundler compiles those schemas into each micro frontend. One source, no package, and nothing fetched at runtime."
+    },
+    {
+      "id": "layout",
+      "part": "code",
+      "text": "Let's walk through the code, starting in the BFF repo, in packages, schemas. There's a shared folder, and one file per micro frontend. The rule is simple: the moment a second micro frontend needs a shape, it moves to shared. Nobody copies it."
+    },
+    {
+      "id": "shared",
+      "part": "code",
+      "text": "This is shared, bank details. A Zod object with an account type, a holder, a ten digit account number, a four letter bank code, and an optional registration number. Notice it has no cross field rules. That's deliberate, and we'll see why in a moment."
+    },
+    {
+      "id": "mfe-files",
+      "part": "code",
+      "text": "The order form's file builds its schema from the item, the quantity, and the shared bank details, by reference. The bank form's file reuses the same bank details. One declaration serves both micro frontends."
+    },
+    {
+      "id": "dynamic",
+      "part": "code",
+      "text": "Now the dynamic rule. The registration number is optional, unless the account type is business. That rule is a shared function, applied last, in each micro frontend's file. In Zod four, extend and similar methods throw on schemas that already carry refinements, so shared objects stay plain, and rules go on at the end."
+    },
+    {
+      "id": "when",
+      "part": "code",
+      "text": "There's one subtle detail. Zod skips refinements once any field has a type error, and forms produce those all the time. An emptied number input gives not a number. The when option tells Zod to run this rule whenever its own inputs are valid, so the error still shows up on blur."
+    },
+    {
+      "id": "bff-side",
+      "part": "code",
+      "text": "On the BFF side, the API imports the very same schema, and validates every submit with safe parse. On top, it adds private rules, like a list of blocked banks. Those live in the API app, outside the linked schemas folder, so no micro frontend gets them through the package. And a leak scan of every bundle catches it, if one ever slips in."
+    },
+    {
+      "id": "link",
+      "part": "code",
+      "text": "Now the UI repo. Each form micro frontend depends on the BFF's schema folder by path. With npm that's a file dependency. With pnpm, a link. The bundler follows the link, and compiles the schema straight into that micro frontend's bundle."
+    },
+    {
+      "id": "zod-peer",
+      "part": "code",
+      "text": "One catch makes this work in the UI pipeline. The linked folder has no node modules of its own in the UI's pipeline. So Zod is a peer dependency of the schemas, and the UI points every import of Zod at its own copy. We proved it by building the UI with the BFF's node modules removed."
+    },
+    {
+      "id": "resolver",
+      "part": "code",
+      "text": "In the form, React Hook Form uses the standard schema resolver with the compiled schema. Zod implements the Standard Schema spec, so the form code doesn't care which library the BFF chose. Mode on touched validates a field when you first leave it, then on every change."
+    },
+    {
+      "id": "nested",
+      "part": "code",
+      "text": "The bank form is a micro frontend inside the order form. Its fields join the host's form through use form context. That only works because React Hook Form is a singleton in the Module Federation shared scope. And when the account type changes, the bank form re-checks the registration number with trigger."
+    },
+    {
+      "id": "submit",
+      "part": "code",
+      "text": "On submit, the host sends everything, and the BFF validates again. For a well behaved UI, that check should almost never fail. When it does, it's a bypassed browser, a private rule, or drift, and the errors land on the right fields."
+    },
+    {
+      "id": "sub-what",
+      "part": "submodule",
+      "text": "So, what exactly is a git submodule? It's a repository inside another repository. But the parent doesn't store the child's files. It stores a pointer to a single commit in the child repo, plus where to find it."
+    },
+    {
+      "id": "sub-files",
+      "part": "submodule",
+      "text": "Git tracks a submodule in two places. A dot git modules file records where the child repo lives, its URL and its path. And the parent's tree records the exact commit, as a special entry called a gitlink. That commit hash is the pin."
+    },
+    {
+      "id": "sub-clone",
+      "part": "submodule",
+      "text": "When you clone the UI repo, the submodule folder starts out empty. Clone with recurse submodules, or run submodule update with init, and git checks out exactly the pinned commit. In CI, the checkout step does the same once you turn submodules on, and a private BFF repo needs a token with read access."
+    },
+    {
+      "id": "sub-bump",
+      "part": "submodule",
+      "text": "When the BFF changes a schema, the UI moves the pin. Submodule update with remote fetches the newer commit, and you commit the moved pointer, in the same pull request as the UI changes. That's our rule, made mechanical: the BFF change, and a UI change that bumps the pin."
+    },
+    {
+      "id": "sub-pitfalls",
+      "part": "submodule",
+      "text": "A few things trip people up. Forget to init, and the folder is empty, so the build fails loudly, which is good. The submodule sits on a detached head, so commit inside the BFF repo, not inside the submodule. And never pin a commit that isn't pushed, or nobody else can check it out."
+    },
+    {
+      "id": "why",
+      "part": "why",
+      "text": "So why does this work? Because the types and the rules come from the same commit, compiled together, so they can't disagree inside the UI. The BFF re-checks everything, so a bypassed or stale browser can't get bad data in. And a set of checks built for CI keeps it that way: import boundaries, a duplicate shape warning that can be made strict, a leak scan, and a type check against the BFF's field names."
+    },
+    {
+      "id": "verdict",
+      "part": "best",
+      "text": "Now, the honest part. Is this how top teams do it? The ownership model, yes: one source of truth, owned by the BFF, and enforced on the server. The delivery, a pinned submodule, is a legitimate pattern in multi repo setups, but it isn't the first choice."
+    },
+    {
+      "id": "ranking",
+      "part": "best",
+      "text": "Top teams usually rank it like this. First, put the BFF in the UI monorepo, so the schema is just a workspace package and every change is one commit. Second, a private package. Third, contract first: generate an OpenAPI spec from the schemas, diff it in CI, and generate the UI's types from it. A pinned source checkout comes after those."
+    },
+    {
+      "id": "pitfalls",
+      "part": "best",
+      "text": "Our approach has real pitfalls. If the BFF relaxes a rule and the UI isn't rebuilt, the UI blocks valid users until it ships. Long lived browser tabs keep old rules after a deploy. Submodules add friction for every developer. And public rules are readable in the bundle, like all front end code."
+    },
+    {
+      "id": "advantages",
+      "part": "best",
+      "text": "In return, we get a lot. Identical validation in the browser and on the server, including custom cross field rules, which a generated JSON Schema contract would drop. No registry, no codegen step, and no runtime moving parts. And since one team owns both repos, pairing the pull requests is realistic."
+    },
+    {
+      "id": "recommend",
+      "part": "best",
+      "text": "So here's where I'd land. Keep this design. Make shape changes additive for one release, watch the rate of server rejections per field, and revisit when something changes: if the repos can merge, merge them. If packages become allowed, publish one. And if other kinds of clients appear, add an OpenAPI contract from the same schemas."
+    },
+    {
+      "id": "outro",
+      "part": "best",
+      "text": "One set of schemas. Owned by the BFF. Compiled into every micro frontend. That's the whole idea."
+    }
+  ]
+}

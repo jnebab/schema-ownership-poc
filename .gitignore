@@ -6,3 +6,6 @@ dist/
 *.log
 demo/out/
 demo/audio/*.wav
+explainer/audio/
+explainer/renders/
+explainer/.hyperframes/

@@ -6,6 +6,7 @@ publishing an npm package, without duplicating schemas between MFEs, and with **
 `bff/` and `ui/` are two independent Turborepo monorepos, standing in for the two real repos.
 
 - **Proof video** (2.7 min, narrated): [`demo/schema-sharing-proof.mp4`](demo/schema-sharing-proof.mp4). Every scene is asserted, so the recording is also the end-to-end test.
+- **Explainer video** (7.3 min, narrated): [`explainer/schema-sharing-explainer.mp4`](explainer/schema-sharing-explainer.mp4). It covers a code walkthrough of how and why the sharing works, how git submodules work, and how this compares with what top teams do (pitfalls, advantages, when to revisit).
 - **Alternatives and best practice** (what top teams do, and every option we weighed): kept in the team's reference doc. The runtime-served-rules variant is on the branch [`alt/runtime-contracts`](https://github.com/jnebab/schema-ownership-poc/tree/alt/runtime-contracts).
 
 ## The design in one picture
@@ -141,6 +142,30 @@ Then record:
 
 ```bash
 node demo/record.ts
+```
+
+To rebuild the explainer (a [HyperFrames](https://hyperframes.heygen.com) composition: HTML + GSAP, with Three.js for the 3D scenes), generate its narration with the same voice:
+
+```bash
+python -I explainer/scripts/tts.py
+```
+
+Check it with Whisper:
+
+```bash
+python -I demo/check-asr.py explainer/narration.json explainer/audio
+```
+
+From `explainer/`, build the narration track and `timing.js`:
+
+```bash
+node scripts/assemble.mjs
+```
+
+Then render:
+
+```bash
+npx --yes hyperframes@0.8.162 render -o renders/schema-sharing-explainer.mp4
 ```
 
 ### Two real repos

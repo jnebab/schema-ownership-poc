@@ -1,0 +1,11 @@
+{
+  "name": "schema-sharing-explainer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "estimate": "node scripts/estimate-timing.mjs",
+    "assemble": "node scripts/assemble.mjs",
+    "check": "npx --yes hyperframes@0.8.162 check",
+    "render": "npx --yes hyperframes@0.8.162 render"
+  }
+}

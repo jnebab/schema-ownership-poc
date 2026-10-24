@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schema Sharing Explainer</title>
+    <script src="assets/gsap.min.js"></script>
+    <script src="assets/three.min.js"></script>
+    <!-- window.TIMING: beat start/duration, written by scripts/assemble.mjs (or estimate-timing.mjs) -->
+    <script src="timing.js"></script>
+    <style>
+      @font-face { font-family: "Cascadia Code"; src: local("Cascadia Code"), local("CascadiaCode"); }
+      @font-face { font-family: "Cambria"; src: local("Cambria"); }
+      @font-face { font-family: "Segoe UI"; src: local("Segoe UI"); font-weight: 400; }
+      @font-face { font-family: "Segoe UI"; src: local("Segoe UI Semibold"); font-weight: 600; }
+      :root {
+        --bg: #0e1015;
+        --panel: #161a22;
+        --line: #2a303c;
+        --fg: #ece9e4;
+        --dim: #8a909b;
+        --blue: #58c4dd;
+        --yellow: #ffd85e;
+        --green: #83c167;
+        --red: #fc6255;
+        --teal: #5cd0b3;
+        --purple: #b98fe0;
+      }
+      html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--fg); font-family: "Segoe UI", sans-serif; }
+      .scene { position: absolute; inset: 0; opacity: 0; }
+      .abs { position: absolute; }
+      .serif { font-family: "Cambria", Georgia, serif; }
+      .mono { font-family: "Cascadia Code", Consolas, monospace; }
+      .h1 { font-family: "Cambria", Georgia, serif; font-size: 72px; line-height: 1.05; white-space: nowrap; }
+      .h2 { font-family: "Cambria", Georgia, serif; font-size: 52px; line-height: 1.1; white-space: nowrap; }
+      .sub { font-size: 30px; color: var(--dim); white-space: nowrap; }
+      .ov { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: visible; pointer-events: none; }
+      .node { position: absolute; border: 3px solid var(--blue); border-radius: 18px; background: rgba(22, 26, 34, 0.92); padding: 18px 24px; box-sizing: border-box; }
+      .node .t { font-family: "Cambria", Georgia, serif; font-size: 38px; white-space: nowrap; }
+      .node .s { font-family: "Cascadia Code", Consolas, monospace; font-size: 22px; color: var(--dim); margin-top: 6px; white-space: nowrap; }
+      .chip { position: absolute; display: inline-block; padding: 10px 20px; border-radius: 999px; border: 2px solid var(--line); background: var(--panel); font-size: 28px; white-space: nowrap; }
+      .pill { display: inline-block; padding: 6px 16px; border-radius: 10px; font-family: "Cascadia Code", Consolas, monospace; font-size: 26px; white-space: nowrap; }
+      .code { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-sizing: border-box; padding: 58px 30px 22px; font-family: "Cascadia Code", Consolas, monospace; white-space: pre; color: var(--fg); overflow: hidden; }
+      .code .fname { position: absolute; left: 0; top: 0; right: 0; height: 40px; line-height: 40px; padding-left: 22px; font-size: 20px; color: var(--dim); border-bottom: 1px solid var(--line); background: #12151c; }
+      .code .ln { position: relative; z-index: 1; }
+      .code .hlb { position: absolute; left: 0; right: 0; background: rgba(255, 216, 94, 0.13); border-left: 5px solid var(--yellow); opacity: 0; z-index: 0; }
+      .k { color: var(--purple); } .s1 { color: var(--green); } .re { color: #f4a261; } .c { color: #6b7280; font-style: italic; }
+      .p { color: var(--blue); } .f { color: var(--yellow); } .n { color: var(--teal); }
+      .card { position: absolute; border-radius: 16px; background: var(--panel); border: 2px solid var(--line); padding: 22px 26px; box-sizing: border-box; font-size: 30px; line-height: 1.3; }
+      .card b { font-weight: 600; }
+      .ok { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--yellow); }
+      .field { position: absolute; font-size: 24px; }
+      .field .lab { color: var(--dim); font-size: 22px; margin-bottom: 4px; }
+      .field .box { width: 100%; height: 44px; border: 2px solid #3a4150; border-radius: 8px; background: #0f1218; box-sizing: border-box; padding: 6px 12px; font-family: "Cascadia Code", Consolas, monospace; font-size: 22px; position: relative; }
+      .field .err { color: var(--red); font-size: 21px; margin-top: 4px; white-space: nowrap; }
+      #chapter { position: absolute; left: 64px; top: 44px; z-index: 60; font-size: 24px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--dim); }
+      #chapter div { position: absolute; left: 0; top: 0; white-space: nowrap; opacity: 0; }
+      #captions { position: absolute; left: 0; right: 0; top: 968px; height: 90px; z-index: 70; }
+      #captions div { position: absolute; left: 50%; top: 0; transform: translateX(-50%); max-width: 1560px; width: max-content; text-align: center; font-size: 29px; line-height: 1.32; color: #e8e6e3; background: rgba(8, 9, 12, 0.72); padding: 6px 18px; border-radius: 10px; opacity: 0; }
+      #gl { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; opacity: 0; z-index: 5; }
+      .ontop { z-index: 10; }
+      #grid { position: absolute; inset: 0; opacity: 0.35; background-image: linear-gradient(rgba(88,196,221,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(88,196,221,0.05) 1px, transparent 1px); background-size: 80px 80px; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="schema-sharing-explainer" data-width="1920" data-height="1080" data-start="0" data-duration="435.655">
+      <!-- AUDIO:BEGIN -->
+      <audio id="vo" data-start="0" data-duration="435.655" data-track-index="1" src="audio/narration.wav"></audio>
+      <!-- AUDIO:END -->
+      <div id="grid"></div>
+      <canvas id="gl" width="1920" height="1080"></canvas>
+      <div id="chapter"></div>
+
+      <!-- ================= 1. TWO REPOS, ONE RULE (hook, problem) ================= -->
+      <section id="s-repos" class="scene ontop">
+        <div id="r-q" class="abs h1" style="left: 0; width: 1920px; text-align: center; top: 120px">Where should this rule live?</div>
+        <div id="r-bff" class="node" style="left: 90px; top: 300px; width: 470px; height: 400px; border-color: var(--blue)">
+          <div class="t">BFF repo</div><div class="s">Fastify · validates every submit</div>
+        </div>
+        <div id="r-ui" class="node" style="left: 1360px; top: 300px; width: 470px; height: 400px; border-color: var(--teal)">
+          <div class="t">UI repo</div><div class="s">Module Federation micro frontends</div>
+        </div>
+        <div id="r-rule" class="abs" style="left: 960px; top: 470px; transform: translateX(-50%); text-align: center">
+          <span class="pill" style="background: #241f10; border: 2px solid var(--yellow); font-size: 30px"><span class="p">accountNumber</span>: <span class="re">/^\d{10}$/</span></span>
+          <div class="sub" style="margin-top: 14px">exactly ten digits</div>
+        </div>
+        <div id="r-copyA" class="abs" style="left: 325px; top: 520px; transform: translateX(-50%)"><span class="pill" style="background: #241f10; border: 2px solid var(--yellow)"><span class="re">/^\d{10}$/</span></span></div>
+        <div id="r-copyB" class="abs" style="left: 1595px; top: 520px; transform: translateX(-50%)"><span class="pill" style="background: #241f10; border: 2px solid var(--yellow)"><span class="re">/^\d{10}$/</span></span></div>
+        <div id="r-copyB2" class="abs" style="left: 1595px; top: 520px; transform: translateX(-50%)"><span class="pill" style="background: #2a1414; border: 2px solid var(--red)"><span class="bad">/^\d{12}$/</span></span></div>
+        <div id="r-drift" class="abs h2 bad" style="left: 960px; top: 505px; transform: translateX(-50%)">≠ drift</div>
+        <div id="r-pkg" class="node" style="left: 660px; top: 770px; width: 600px; height: 150px; border-color: var(--purple); text-align: center">
+          <div class="t">publish an npm package?</div><div class="s">registry · versions · release process</div>
+        </div>
+        <div id="r-pkgx" class="abs bad" style="left: 1290px; top: 815px; font-size: 32px; white-space: nowrap">✗ ruled out by the team</div>
+        <svg class="ov" viewBox="0 0 1920 1080">
+          <g id="r-arrows"></g>
+          <path id="r-strike" d="M650 845 L1270 845" stroke="#fc6255" stroke-width="6" fill="none" pathLength="1" stroke-dasharray="1" stroke-dashoffset="1" />
+        </svg>
+      </section>
+
+      <!-- ================= 2. THE IDEA ================= -->
+      <section id="s-idea" class="scene ontop">
+        <div id="i-title" class="abs h1" style="left: 120px; top: 130px">The whole idea</div>
+        <div id="i-n1" class="node" style="left: 90px; top: 420px; width: 360px; height: 150px"><div class="t">BFF repo</div><div class="s">packages/schemas</div></div>
+        <div id="i-n2" class="abs" style="left: 525px; top: 420px; width: 240px; text-align: center">
+          <div class="serif" style="font-size: 34px; color: var(--yellow)">pinned commit</div>
+          <span class="pill" style="border: 2px solid var(--yellow); margin-top: 12px">3f9c2e1</span>
+          <div class="sub" style="font-size: 24px; margin-top: 10px">git submodule</div>
+        </div>
+        <div id="i-n3" class="node" style="left: 830px; top: 420px; width: 400px; height: 150px; border-color: var(--teal)"><div class="t">UI repo</div><div class="s">vendor/bff → linked folder</div></div>
+        <div id="i-n4" class="node" style="left: 1310px; top: 420px; width: 230px; height: 150px; border-color: var(--purple)"><div class="t">bundler</div><div class="s">rsbuild</div></div>
+        <div id="i-n5a" class="node" style="left: 1610px; top: 330px; width: 250px; height: 110px; border-color: var(--green); padding: 14px 20px"><div class="t" style="font-size: 30px">order-form</div><div class="s">bundle + schema</div></div>
+        <div id="i-n5b" class="node" style="left: 1610px; top: 550px; width: 250px; height: 110px; border-color: var(--green); padding: 14px 20px"><div class="t" style="font-size: 30px">bank-form</div><div class="s">bundle + schema</div></div>
+        <div id="i-c1" class="chip" style="left: 380px; top: 800px">one source</div>
+        <div id="i-c2" class="chip" style="left: 700px; top: 800px">no package</div>
+        <div id="i-c3" class="chip" style="left: 1020px; top: 800px">nothing fetched at runtime</div>
+        <svg class="ov" viewBox="0 0 1920 1080"><g id="i-arrows"></g><g id="i-dots"></g></svg>
+      </section>
+
+      <!-- ================= 3. LAYOUT ================= -->
+      <section id="s-layout" class="scene ontop">
+        <div class="abs h2" style="left: 120px; top: 130px" id="l-title">BFF repo · <span class="mono" style="font-size: 44px; color: var(--blue)">packages/schemas</span></div>
+        <div id="l-tree" class="abs mono" style="left: 140px; top: 270px; font-size: 36px; line-height: 64px"></div>
+        <div id="l-pill" class="abs" style="left: 900px; top: 528px"><span class="pill" style="border: 2px solid var(--yellow); background: #241f10">BankDetails</span></div>
+        <div id="l-rule" class="abs" style="left: 1180px; top: 300px; width: 640px">
+          <div class="serif" style="font-size: 44px; line-height: 1.2">A shape used by a<br />second micro frontend<br />moves to <span class="mono" style="color: var(--yellow); font-size: 40px">shared/</span></div>
+        </div>
+        <div id="l-nocopy" class="abs serif" style="left: 1180px; top: 560px; font-size: 44px">nobody <span style="position: relative">copies<span id="l-strike" style="position: absolute; left: -6px; right: -6px; top: 52%; height: 5px; background: var(--red); transform-origin: left center; transform: scaleX(0)"></span></span> it</div>
+        <div id="l-ci" class="abs sub" style="left: 1180px; top: 650px; font-size: 26px">CI flags copies: <span class="mono">scripts/check-duplicates.ts</span></div>
+        <svg class="ov" viewBox="0 0 1920 1080"><g id="l-arrows"></g></svg>
+      </section>
+
+      <!-- ================= 4. SHARED BANK DETAILS ================= -->
+      <section id="s-shared" class="scene ontop">
+        <div id="sh-code"></div>
+        <div id="sh-notes" class="abs" style="left: 120px; top: 760px; width: 1680px"></div>
+      </section>
+
+      <!-- ================= 5. ONE DECLARATION, TWO MFEs ================= -->
+      <section id="s-mfe" class="scene ontop">
+        <div id="m-src" class="abs" style="left: 960px; top: 120px; transform: translateX(-50%)"><span class="pill" style="border: 2px solid var(--yellow); background: #241f10; font-size: 30px">shared/bank-details.ts → <span class="p">BankDetails</span></span></div>
+        <div id="m-left"></div>
+        <div id="m-right"></div>
+        <div id="m-tag" class="abs h2" style="left: 0; width: 1920px; text-align: center; top: 830px">one declaration · two micro frontends</div>
+        <svg class="ov" viewBox="0 0 1920 1080"><g id="m-arrows"></g></svg>
+      </section>
+
+      <!-- ================= 6. THE DYNAMIC RULE + when ================= -->
+      <section id="s-rule" class="scene ontop">
+        <div id="ru-code"></div>
+        <div id="ru-a" class="abs" style="left: 1330px; top: 190px; width: 540px">
+          <div class="serif" style="font-size: 40px; margin-bottom: 18px">registrationNumber is…</div>
+          <div class="card" id="ru-a1" style="position: relative; margin-bottom: 16px"><span class="mono" style="font-size: 26px">personal</span> → <span style="color: var(--dim)">optional</span></div>
+          <div class="card" id="ru-a2" style="position: relative; border-color: var(--red)"><span class="mono" style="font-size: 26px">business</span> → <span class="bad">required</span></div>
+          <div class="sub" id="ru-a3" style="margin-top: 30px; font-size: 26px; white-space: normal">applied last, in each MFE's file:</div>
+          <div id="ru-a4" class="mono" style="font-size: 22px; margin-top: 10px; line-height: 1.5"><span class="f">withBusinessRegistration</span>(<span class="p">z</span>.<span class="f">object</span>({…}))</div>
+        </div>
+        <div id="ru-z" class="abs" style="left: 1330px; top: 720px; width: 560px">
+          <div class="sub" style="font-size: 24px; margin-bottom: 10px">Zod 4</div>
+          <div class="mono" style="font-size: 23px; line-height: 1.7">plain<span style="color: var(--dim)">.extend()</span> <span class="ok">✓</span><br />refined<span style="color: var(--dim)">.extend()</span> <span class="bad">✗ throws</span></div>
+        </div>
+        <div id="ru-b" class="abs" style="left: 1330px; top: 180px; width: 560px">
+          <div class="serif" style="font-size: 38px; margin-bottom: 18px">the form, mid-edit</div>
+          <div class="mono" style="font-size: 24px; line-height: 1.75">
+            <div>item: <span class="s1">'Desk lamp'</span> <span class="ok">✓</span></div>
+            <div id="ru-nan">quantity: <span class="n">NaN</span> <span class="bad">✗ type error</span></div>
+            <div>accountType: <span class="s1">'business'</span> <span class="ok">✓</span></div>
+            <div>registrationNumber: <span class="s1">''</span></div>
+          </div>
+          <div id="ru-b1" class="card" style="position: relative; margin-top: 26px; border-color: var(--red); font-size: 26px">without <span class="mono">when</span>: refinements skipped<br /><span style="color: var(--dim)">→ no message for the registration number</span></div>
+          <div id="ru-b2" class="card" style="position: relative; margin-top: 18px; border-color: var(--green); font-size: 26px">with <span class="mono">when</span>: its own inputs are valid<br />→ <span class="bad">Registration number is required…</span></div>
+        </div>
+      </section>
+
+      <!-- ================= 7. BFF SIDE ================= -->
+      <section id="s-bff" class="scene ontop">
+        <div id="b-left" class="node" style="left: 120px; top: 170px; width: 760px; height: 420px; border-color: var(--blue)">
+          <div class="t">packages/schemas</div><div class="s" style="color: var(--blue)">the only folder the UI links</div>
+          <div class="mono" style="font-size: 28px; line-height: 56px; margin-top: 24px">shared/bank-details.ts<br /><span id="b-of">order-form.ts</span><br />bank-form.ts</div>
+        </div>
+        <div id="b-right" class="node" style="left: 1040px; top: 170px; width: 760px; height: 420px; border-color: var(--purple)">
+          <div class="t">apps/api</div><div class="s" style="color: var(--purple)">BFF only · never in a bundle</div>
+          <div class="mono" style="font-size: 28px; line-height: 56px; margin-top: 24px"><span id="b-srv">server.ts</span><br /><span id="b-priv">private-rules.ts</span></div>
+        </div>
+        <div id="b-code"></div>
+        <div id="b-scan" class="card" style="left: 1240px; top: 640px; width: 560px; border-color: var(--green)">
+          <div class="serif" style="font-size: 34px">leak scan · every bundle</div>
+          <div class="mono" style="font-size: 22px; color: var(--dim); margin-top: 10px">ZZZZ · FAKE · BLOCKED_BANK_CODES</div>
+          <div style="margin-top: 8px" class="ok">0 found ✓</div>
+        </div>
+        <svg class="ov" viewBox="0 0 1920 1080"><g id="b-arrows"></g>
+          <path id="b-fence" d="M960 160 L960 600" stroke="#fc6255" stroke-width="5" stroke-dasharray="14 12" fill="none" opacity="0" />
+        </svg>
+      </section>
+
+      <!-- ================= 8. LINK + zod peer ================= -->
+      <section id="s-link" class="scene ontop">
+        <div id="k-code1"></div>
+        <div id="k-code2"></div>
+        <div id="k-d1" class="abs" style="left: 1060px; top: 170px; width: 800px; height: 700px">
+          <div id="k-f" class="node" style="left: 0; top: 0; width: 520px; height: 130px; border-color: var(--blue)"><div class="t" style="font-size: 32px">vendor/bff/packages/schemas</div><div class="s">the BFF's own files</div></div>
+          <div id="k-m" class="node" style="left: 0; top: 230px; width: 380px; height: 120px; border-color: var(--teal)"><div class="t" style="font-size: 32px">order-form MFE</div><div class="s">"@bff/schemas": "file:…"</div></div>
+          <div id="k-b" class="node" style="left: 440px; top: 230px; width: 280px; height: 120px; border-color: var(--purple)"><div class="t" style="font-size: 32px">rsbuild</div><div class="s">follows the link</div></div>
+          <div id="k-out" class="node" style="left: 160px; top: 460px; width: 480px; height: 140px; border-color: var(--green)"><div class="t" style="font-size: 32px">order-form bundle</div><div class="s">React · form · <span style="color: var(--yellow)">OrderForm schema</span></div></div>
+          <svg class="ov" style="width: 800px; height: 700px" viewBox="0 0 800 700"><g id="k-arrows"></g></svg>
+        </div>
+        <div id="k-d2" class="abs" style="left: 1060px; top: 170px; width: 800px; height: 700px">
+          <div id="k-lf" class="node" style="left: 0; top: 0; width: 520px; height: 170px; border-color: var(--blue)"><div class="t" style="font-size: 30px">linked: packages/schemas</div><div class="s">import { z } from 'zod'</div><div class="s bad" style="margin-top: 10px"><span style="text-decoration: line-through">node_modules/</span> not installed in UI CI</div></div>
+          <div id="k-uz" class="node" style="left: 200px; top: 330px; width: 460px; height: 120px; border-color: var(--green)"><div class="t" style="font-size: 30px">ui/node_modules/zod</div><div class="s">one copy, the UI's own</div></div>
+          <div id="k-ok" class="card" style="left: 60px; top: 540px; width: 660px; border-color: var(--green); font-size: 28px"><span class="ok">✓</span> UI builds with <span class="mono" style="font-size: 25px">bff/node_modules</span> removed</div>
+          <svg class="ov" style="width: 800px; height: 700px" viewBox="0 0 800 700"><g id="k-arrows2"></g></svg>
+        </div>
+      </section>
+
+      <!-- ================= 9. THE FORM: resolver + onTouched ================= -->
+      <section id="s-form" class="scene ontop">
+        <div id="f-code"></div>
+        <div id="f-std" class="abs" style="left: 120px; top: 600px; width: 1680px">
+          <span class="pill" style="border: 2px solid var(--blue)">Zod schema</span>
+          <span class="serif" style="font-size: 34px; margin: 0 18px">→</span>
+          <span class="pill" style="border: 2px solid var(--yellow)">~standard (Standard Schema)</span>
+          <span class="serif" style="font-size: 34px; margin: 0 18px">→</span>
+          <span class="pill" style="border: 2px solid var(--teal)">React Hook Form resolver</span>
+          <div class="sub" style="margin-top: 16px">form code doesn't care which library the BFF chose</div>
+        </div>
+        <div id="f-demo" class="abs" style="left: 120px; top: 760px; width: 1680px; height: 190px">
+          <div class="field" style="left: 0; top: 0; width: 520px">
+            <div class="lab">Account number</div>
+            <div class="box"><span id="f-v1" class="abs" style="left: 12px; top: 6px">12345</span><span id="f-v2" class="abs" style="left: 12px; top: 6px">1234567890</span></div>
+            <div id="f-err" class="err">Account number must be 10 digits</div>
+            <div id="f-okk" class="err ok" style="position: absolute; top: 76px">✓ valid</div>
+          </div>
+          <div id="f-s1" class="chip" style="left: 600px; top: 26px; color: var(--dim)">typing · no check yet</div>
+          <div id="f-s2" class="chip" style="left: 940px; top: 26px; border-color: var(--yellow)">first blur → validate</div>
+          <div id="f-s3" class="chip" style="left: 1290px; top: 26px; border-color: var(--teal)">then every change</div>
+        </div>
+      </section>
+
+      <!-- ================= 10. NESTED MFE + submit ================= -->
+      <section id="s-nest" class="scene ontop">
+        <div id="n-host" class="node" style="left: 120px; top: 150px; width: 1000px; height: 770px; border-color: var(--teal)">
+          <div class="t">order-form MFE <span class="sub" style="font-size: 26px">(host)</span></div>
+          <div class="field" style="left: 30px; top: 100px; width: 440px"><div class="lab">Item</div><div class="box">Desk lamp</div></div>
+          <div class="field" style="left: 510px; top: 100px; width: 440px"><div class="lab">Quantity</div><div class="box">2</div></div>
+          <div id="n-btn" class="abs" style="left: 30px; top: 690px; padding: 8px 26px; border-radius: 10px; background: var(--teal); color: #0e1015; font-size: 26px; font-weight: 600">Place order</div>
+        </div>
+        <div id="n-bank" class="node" style="left: 160px; top: 345px; width: 920px; height: 470px; border: 3px dashed var(--yellow); background: rgba(36, 31, 16, 0.5)">
+          <div class="t" style="font-size: 32px">Bank Form MFE <span class="sub" style="font-size: 24px">(remote, embedded)</span></div>
+          <div class="field" style="left: 30px; top: 66px; width: 400px"><div class="lab">Account type</div><div class="box"><span id="n-pers" class="abs" style="left: 12px; top: 6px">Personal ▾</span><span id="n-bus" class="abs" style="left: 12px; top: 6px">Business ▾</span></div></div>
+          <div class="field" style="left: 470px; top: 66px; width: 400px"><div class="lab">Account holder</div><div class="box">Ada Lovelace</div></div>
+          <div class="field" style="left: 30px; top: 158px; width: 400px"><div class="lab">Account number</div><div class="box">1234567890</div></div>
+          <div class="field" style="left: 470px; top: 158px; width: 400px"><div class="lab">Bank code</div><div class="box">ABCD</div></div>
+          <div id="n-reg" class="field" style="left: 30px; top: 250px; width: 840px"><div class="lab">Company registration number</div><div class="box" style="border-color: var(--red)"></div><div class="err">Registration number is required for business accounts</div></div>
+          <div id="n-trig" class="abs mono" style="left: 30px; top: 385px; font-size: 24px; color: var(--yellow)">trigger('bankDetails.registrationNumber')</div>
+        </div>
+        <div id="n-scope" class="card" style="left: 1240px; top: 200px; width: 600px">
+          <div class="serif" style="font-size: 36px; margin-bottom: 14px">Module Federation shared scope</div>
+          <div class="mono" style="font-size: 24px; line-height: 1.9">react <span style="color: var(--dim)">singleton</span><br />react-dom <span style="color: var(--dim)">singleton</span><br /><span id="n-rhf" style="color: var(--yellow)">react-hook-form singleton ← one instance</span><br />zod <span style="color: var(--dim)">shared</span></div>
+        </div>
+        <div id="n-ctx" class="abs mono" style="left: 1240px; top: 560px; font-size: 26px; line-height: 1.6">useFormContext()<div class="sub" style="font-size: 24px; font-family: 'Segoe UI'">Bank Form's fields join<br />the host's form</div></div>
+        <div id="n-flow" class="abs" style="left: 1220px; top: 180px; width: 640px">
+          <div class="mono" style="font-size: 24px; color: var(--dim)">POST /api/order-form/orders</div>
+          <div class="card" style="position: relative; margin-top: 16px; border-color: var(--purple)">BFF: <b>same schema</b> + private rules</div>
+          <div id="n-201" class="h1 ok" style="margin-top: 30px">201 Created</div>
+          <div id="n-422" class="card" style="position: relative; margin-top: 30px; font-size: 26px"><span class="warn">422</span>, rarely: a bypassed browser · a private rule · drift<br /><span style="color: var(--dim)">→ errors land on the right fields</span></div>
+        </div>
+        <svg class="ov" viewBox="0 0 1920 1080"><g id="n-arrows"></g></svg>
+      </section>
+
+      <!-- ================= 11. GIT SUBMODULES (overlay on the WebGL scene) ================= -->
+      <section id="s-sub" class="scene ontop">
+        <div id="g-title" class="abs h1" style="left: 80px; top: 130px">git submodule</div>
+        <div id="g-def" class="abs serif" style="left: 84px; top: 250px; font-size: 38px; line-height: 1.35">a repository inside a repository<br /><span style="color: var(--dim)">the parent stores only</span><br /><span style="color: var(--yellow)">a pointer to one commit</span><br /><span style="color: var(--dim)">plus where to find it</span></div>
+        <div id="g-mod"></div>
+        <div id="g-tree"></div>
+        <div id="g-pin" class="abs serif warn" style="left: 90px; top: 870px; font-size: 38px">gitlink = the pin</div>
+        <div id="g-clone"></div>
+        <div id="g-ci"></div>
+        <div id="g-bump"></div>
+        <div id="g-prs" class="abs" style="left: 80px; top: 590px; width: 760px">
+          <div class="card" style="position: relative; border-color: var(--blue)">BFF PR · <b>schema change</b></div>
+          <div class="serif" style="font-size: 36px; text-align: center; margin: 8px 0; color: var(--dim)">ships with</div>
+          <div class="card" style="position: relative; border-color: var(--teal)">UI PR · <b>UI change + pin bump</b></div>
+        </div>
+        <div id="g-pits" class="abs" style="left: 120px; top: 250px; width: 1680px; height: 600px">
+          <div id="g-p1" class="card" style="left: 0; top: 0; width: 520px; height: 420px"><div class="h2" style="font-size: 40px; white-space: normal">Forgot to init?</div><p style="color: var(--dim)">The folder is empty, so the build fails loudly.</p><div class="ok">good: you notice</div></div>
+          <div id="g-p2" class="card" style="left: 580px; top: 0; width: 520px; height: 420px"><div class="h2" style="font-size: 40px; white-space: normal">Detached HEAD</div><p style="color: var(--dim)">The submodule sits on a commit, not a branch.</p><div class="warn">commit in the BFF repo itself</div></div>
+          <div id="g-p3" class="card" style="left: 1160px; top: 0; width: 520px; height: 420px"><div class="h2" style="font-size: 40px; white-space: normal">Unpushed pin</div><p style="color: var(--dim)">Pin a commit only you have, and nobody else can check it out.</p><div class="bad">push before you bump</div></div>
+        </div>
+      </section>
+
+      <!-- ================= 12. WHY IT WORKS ================= -->
+      <section id="s-why" class="scene ontop">
+        <div class="abs h1" style="left: 120px; top: 130px">Why it works</div>
+        <div id="w1" class="card" style="left: 120px; top: 290px; width: 520px; height: 520px; border-color: var(--yellow)"><div class="h2" style="font-size: 44px">Same commit</div><p>Types and rules are compiled together.</p><p style="color: var(--dim)">They can't disagree inside the UI.</p></div>
+        <div id="w2" class="card" style="left: 700px; top: 290px; width: 520px; height: 520px; border-color: var(--purple)"><div class="h2" style="font-size: 44px">BFF re-checks</div><p>Every submit, same schema + private rules.</p><p style="color: var(--dim)">A bypassed or stale browser can't get bad data in.</p></div>
+        <div id="w3" class="card" style="left: 1280px; top: 290px; width: 520px; height: 520px; border-color: var(--green)"><div class="h2" style="font-size: 44px">Checks for CI</div>
+          <div id="w3a" class="chip" style="position: relative; display: block; width: fit-content; margin-top: 22px">import boundaries</div>
+          <div id="w3b" class="chip" style="position: relative; display: block; width: fit-content; margin-top: 14px">duplicate shapes <span style="color: var(--dim)">(warn → --strict)</span></div>
+          <div id="w3c" class="chip" style="position: relative; display: block; width: fit-content; margin-top: 14px">leak scan</div>
+          <div id="w3d" class="chip" style="position: relative; display: block; width: fit-content; margin-top: 14px">typecheck vs BFF fields</div>
+        </div>
+      </section>
+
+      <!-- ================= 13. VERDICT ================= -->
+      <section id="s-verdict" class="scene ontop">
+        <div class="abs h1" style="left: 120px; top: 130px">Is this what top teams do?</div>
+        <div id="v1" class="card" style="left: 120px; top: 330px; width: 1680px; height: 200px; border-color: var(--green)">
+          <div class="h2" style="font-size: 46px"><span class="ok">✓</span> The ownership model</div>
+          <div style="color: var(--dim); margin-top: 14px">one source of truth · owned by the BFF · enforced on the server</div>
+        </div>
+        <div id="v2" class="card" style="left: 120px; top: 580px; width: 1680px; height: 200px; border-color: var(--yellow)">
+          <div class="h2" style="font-size: 46px"><span class="warn">~</span> The delivery: a pinned submodule</div>
+          <div style="color: var(--dim); margin-top: 14px">a legitimate multi-repo pattern, but not the first choice</div>
+        </div>
+      </section>
+
+      <!-- ================= 14. RANKING ================= -->
+      <section id="s-rank" class="scene ontop">
+        <div class="abs h1" style="left: 120px; top: 110px">How top teams rank it</div>
+        <div id="rk1" class="card" style="left: 120px; top: 250px; width: 1680px; height: 118px"><span class="serif" style="font-size: 44px; color: var(--green)">1</span>&nbsp;&nbsp;<b>Same monorepo</b> <span style="color: var(--dim)">· the schema is a workspace package · one commit per change</span></div>
+        <div id="rk2" class="card" style="left: 120px; top: 388px; width: 1680px; height: 118px"><span class="serif" style="font-size: 44px; color: var(--green)">2</span>&nbsp;&nbsp;<b>Private package</b> <span style="color: var(--dim)">· versioned · needs a registry</span></div>
+        <div id="rk3" class="card" style="left: 120px; top: 526px; width: 1680px; height: 118px"><span class="serif" style="font-size: 44px; color: var(--green)">3</span>&nbsp;&nbsp;<b>Contract first</b> <span style="color: var(--dim)">· OpenAPI from the schemas · diff in CI · generate UI types</span></div>
+        <div id="rk4" class="card" style="left: 120px; top: 664px; width: 1680px; height: 118px; border-color: var(--yellow); background: #221e12"><span class="serif" style="font-size: 44px; color: var(--yellow)">4</span>&nbsp;&nbsp;<b>Pinned source checkout</b> <span style="color: var(--dim)">· git submodule + link</span> <span class="warn" style="float: right">← ours</span></div>
+        <div id="rk5" class="card" style="left: 120px; top: 802px; width: 1680px; height: 118px; opacity: 0.6"><span class="serif" style="font-size: 44px; color: var(--dim)">5</span>&nbsp;&nbsp;<b>Runtime-served rules</b> <span style="color: var(--dim)">· fetched by the browser</span></div>
+      </section>
+
+      <!-- ================= 15. PITFALLS vs ADVANTAGES ================= -->
+      <section id="s-trade" class="scene ontop">
+        <div class="abs h2 bad" style="left: 120px; top: 120px" id="t-ph">Pitfalls</div>
+        <div class="abs h2 ok" style="left: 990px; top: 120px" id="t-ah">Advantages</div>
+        <div id="t-p1" class="card" style="left: 120px; top: 220px; width: 810px; border-left: 6px solid var(--red)">BFF relaxes a rule, UI not rebuilt → <b>the UI blocks valid users</b> until it ships</div>
+        <div id="t-p2" class="card" style="left: 120px; top: 400px; width: 810px; border-left: 6px solid var(--red)">Long-lived browser tabs <b>keep old rules</b> after a deploy</div>
+        <div id="t-p3" class="card" style="left: 120px; top: 540px; width: 810px; border-left: 6px solid var(--red)">Submodules add <b>friction</b> for every developer</div>
+        <div id="t-p4" class="card" style="left: 120px; top: 680px; width: 810px; border-left: 6px solid var(--red)">Public rules are <b>readable in the bundle</b>, like all front-end code</div>
+        <div id="t-a1" class="card" style="left: 990px; top: 220px; width: 810px; border-left: 6px solid var(--green)"><b>Identical validation</b> in the browser and on the server</div>
+        <div id="t-a2" class="card" style="left: 990px; top: 400px; width: 810px; border-left: 6px solid var(--green)"><b>Custom cross-field rules</b> kept, which a generated JSON Schema contract would drop</div>
+        <div id="t-a3" class="card" style="left: 990px; top: 580px; width: 810px; border-left: 6px solid var(--green)">No registry · no codegen · <b>no runtime moving parts</b></div>
+        <div id="t-a4" class="card" style="left: 990px; top: 720px; width: 810px; border-left: 6px solid var(--green)">One team owns both repos → <b>paired PRs</b> are realistic</div>
+      </section>
+
+      <!-- ================= 16. RECOMMENDATION ================= -->
+      <section id="s-rec" class="scene ontop">
+        <div id="re-keep" class="abs h1" style="left: 120px; top: 120px">Keep this design.</div>
+        <div id="re-c1" class="chip" style="left: 120px; top: 260px; border-color: var(--yellow)">shape changes stay additive for one release</div>
+        <div id="re-c2" class="chip" style="left: 820px; top: 260px; border-color: var(--yellow)">metric: server rejections per field</div>
+        <div id="re-rev" class="abs h2" style="left: 120px; top: 390px; color: var(--dim)">Revisit when…</div>
+        <div id="re-b1" class="abs" style="left: 120px; top: 490px"><span class="chip" style="position: relative">the repos can merge</span><span class="serif" style="font-size: 40px; margin: 0 22px">→</span><span class="chip" style="position: relative; border-color: var(--green)">merge them</span></div>
+        <div id="re-b2" class="abs" style="left: 120px; top: 610px"><span class="chip" style="position: relative">packages become allowed</span><span class="serif" style="font-size: 40px; margin: 0 22px">→</span><span class="chip" style="position: relative; border-color: var(--green)">publish one</span></div>
+        <div id="re-b3" class="abs" style="left: 120px; top: 730px"><span class="chip" style="position: relative">other kinds of clients appear</span><span class="serif" style="font-size: 40px; margin: 0 22px">→</span><span class="chip" style="position: relative; border-color: var(--green)">OpenAPI contract from the same schemas</span></div>
+      </section>
+
+      <!-- ================= 17. OUTRO (overlay on the WebGL scene) ================= -->
+      <section id="s-outro" class="scene ontop">
+        <div id="o1" class="abs h1" style="left: 120px; top: 300px">One set of schemas.</div>
+        <div id="o2" class="abs h1" style="left: 120px; top: 410px; color: var(--blue)">Owned by the BFF.</div>
+        <div id="o3" class="abs h1" style="left: 120px; top: 520px; color: var(--green)">Compiled into every MFE.</div>
+        <div id="o4" class="abs mono" style="left: 124px; top: 680px; font-size: 28px; color: var(--dim)">github.com/jnebab/schema-ownership-poc</div>
+      </section>
+
+      <div id="captions"></div>
+
+      <script>
+        const NS = "http://www.w3.org/2000/svg";
+        const T = window.TIMING;
+        const beat = Object.fromEntries(T.beats.map((b) => [b.id, b]));
+        const S = (id) => beat[id].start;
+        const E = (id) => beat[id].start + beat[id].duration;
+        const at = (id, f) => beat[id].start + beat[id].duration * f;
+        const $ = (s) => document.querySelector(s);
+        const svgEl = (tag, attrs, parent) => {
+          const n = document.createElementNS(NS, tag);
+          for (const k in attrs) n.setAttribute(k, attrs[k]);
+          parent.appendChild(n);
+          return n;
+        };
+
+        // ---------- code panels with a tiny, deterministic TS highlighter ----------
+        const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const TOK = /(\/\/.*$|#.*$)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(\/\^[^/]*\/)|\b(import|from|export|const|function|return|type|as|await|async|new|true|false)\b|\b(\d+(?:\.\d+)?)\b|([A-Za-z_$@][\w$\-]*)(?=\s*:(?!\/))|([A-Za-z_$][\w$]*)(?=\s*\()/g;
+        const hl = (line, plain) => {
+          if (plain) return esc(line);
+          let out = "", last = 0;
+          line.replace(TOK, (m, c, s, re, k, n, p, f, i) => {
+            out += esc(line.slice(last, i));
+            const cls = c ? "c" : s ? "s1" : re ? "re" : k ? "k" : n ? "n" : p ? "p" : "f";
+            out += `<span class="${cls}">${esc(m)}</span>`;
+            last = i + m.length;
+            return m;
+          });
+          return out + esc(line.slice(last));
+        };
+        const panels = {};
+        function code(hostId, { name, lines, x, y, w, font = 24, lh = 40, plain = false }) {
+          const host = document.getElementById(hostId);
+          const el = document.createElement("div");
+          el.className = "code";
+          Object.assign(el.style, { left: x + "px", top: y + "px", width: w + "px", fontSize: font + "px", lineHeight: lh + "px" });
+          el.innerHTML = `<div class="fname">${esc(name)}</div><div class="hlb"></div>` + lines.map((l) => `<div class="ln">${hl(l, plain) || "&nbsp;"}</div>`).join("");
+          host.appendChild(el);
+          panels[hostId] = { el, lh, box: el.querySelector(".hlb") };
+          return el;
+        }
+
+        // ---------- arrows: a path that draws, plus a head that appears at its end ----------
+        function arrow(group, d, color = "#8a909b", width = 4, dashed = false) {
+          const g = svgEl("g", { opacity: 0 }, group);
+          const p = svgEl("path", { d, stroke: color, "stroke-width": width, fill: "none", pathLength: 1, "stroke-dasharray": "1", "stroke-dashoffset": "1", "stroke-linecap": "round" }, g);
+          const L = p.getTotalLength(), a = p.getPointAtLength(L), b = p.getPointAtLength(Math.max(0, L - 2));
+          const ang = Math.atan2(a.y - b.y, a.x - b.x), s = 16;
+          const pts = [[a.x, a.y], [a.x - s * Math.cos(ang - 0.45), a.y - s * Math.sin(ang - 0.45)], [a.x - s * Math.cos(ang + 0.45), a.y - s * Math.sin(ang + 0.45)]];
+          const head = svgEl("polygon", { points: pts.map((q) => q.join(",")).join(" "), fill: color, opacity: 0 }, g);
+          if (dashed) { p.removeAttribute("pathLength"); p.setAttribute("stroke-dasharray", "12 10"); p.setAttribute("stroke-dashoffset", "0"); }
+          return { g, p, head, dashed };
+        }
+
+        // ================= build static content =================
+        // 1. repos
+        const rArrows = $("#r-arrows");
+        const rA1 = arrow(rArrows, "M700 495 L575 495", "#ffd85e");
+        const rA2 = arrow(rArrows, "M1220 495 L1345 495", "#ffd85e");
+
+        // 2. idea
+        const iArrows = $("#i-arrows");
+        const iA = [
+          arrow(iArrows, "M455 495 L520 495", "#ffd85e"),
+          arrow(iArrows, "M770 495 L825 495", "#ffd85e"),
+          arrow(iArrows, "M1235 495 L1305 495", "#b98fe0"),
+          arrow(iArrows, "M1545 470 C 1580 440, 1585 400, 1605 390", "#83c167"),
+          arrow(iArrows, "M1545 520 C 1580 550, 1585 590, 1605 600", "#83c167"),
+        ];
+        const iDots = $("#i-dots");
+        const dotA = svgEl("rect", { x: -11, y: -11, width: 22, height: 22, fill: "#ffd85e", transform: "rotate(45)" }, svgEl("g", {}, svgEl("g", { id: "i-dotA" }, iDots)));
+        const dotB = svgEl("rect", { x: -11, y: -11, width: 22, height: 22, fill: "#ffd85e", transform: "rotate(45)" }, svgEl("g", {}, svgEl("g", { id: "i-dotB" }, iDots)));
+
+        // 3. layout tree
+        const treeRows = [
+          ["bff/", 0, "var(--dim)"],
+          ["packages/schemas/src/", 1, "var(--blue)"],
+          ["shared/", 2, "var(--yellow)"],
+          ["bank-details.ts", 3, "var(--fg)"],
+          ["order-form.ts", 2, "var(--fg)"],
+          ["bank-form.ts", 2, "var(--fg)"],
+          ["apps/api/", 1, "var(--dim)"],
+        ];
+        $("#l-tree").innerHTML = treeRows.map(([t, d, c], i) => `<div id="lt${i}" style="padding-left:${d * 44}px;color:${c}">${t}</div>`).join("");
+        const lArrows = $("#l-arrows");
+        const lAneed = arrow(lArrows, "M720 655 C 840 655, 900 610, 960 575", "#8a909b", 3, true);
+        const lA1 = arrow(lArrows, "M680 590 C 780 590, 800 520, 890 500", "#ffd85e");
+        const lA2 = arrow(lArrows, "M680 655 C 820 655, 860 540, 960 505", "#ffd85e");
+
+        // 4. shared code
+        code("sh-code", {
+          name: "bff/packages/schemas/src/shared/bank-details.ts",
+          x: 120, y: 150, w: 1680, font: 27, lh: 46,
+          lines: [
+            "import { z } from 'zod'",
+            "",
+            "export const ACCOUNT_TYPES = ['personal', 'business'] as const",
+            "",
+            "export const BankDetails = z.object({",
+            "  accountType: z.enum(ACCOUNT_TYPES),",
+            "  accountHolder: z.string().trim().min(2, 'Enter the account holder name'),",
+            "  accountNumber: z.string().regex(/^\\d{10}$/, 'Account number must be 10 digits'),",
+            "  bankCode: z.string().regex(/^[A-Z]{4}$/, 'Bank code is 4 capital letters, e.g. ABCD'),",
+            "  registrationNumber: z.string().trim().optional()",
+            "})",
+          ],
+        });
+        const shNotes = [
+          ["personal | business", "var(--blue)"],
+          ["2+ characters", "var(--blue)"],
+          ["exactly 10 digits", "var(--yellow)"],
+          ["4 capital letters", "var(--blue)"],
+          ["optional", "var(--blue)"],
+          ["no cross-field rules here, on purpose", "var(--red)"],
+        ];
+        $("#sh-notes").innerHTML = shNotes.map(([t, c], i) => `<span id="shn${i}" class="chip" style="position:relative;display:inline-block;margin:0 14px 14px 0;border-color:${c}">${t}</span>`).join("");
+
+        // 5. MFE files
+        code("m-left", {
+          name: "order-form.ts", x: 100, y: 230, w: 880, font: 24, lh: 40,
+          lines: [
+            "import {",
+            "  BankDetails, withBusinessRegistration",
+            "} from './shared/bank-details.ts'",
+            "",
+            "export const OrderForm = withBusinessRegistration(",
+            "  z.object({",
+            "    item: z.string().trim().min(1, …).max(40, …),",
+            "    quantity: z.number({ … }).int().min(1, …).max(20, …),",
+            "    bankDetails: BankDetails",
+            "  }))",
+          ],
+        });
+        code("m-right", {
+          name: "bank-form.ts", x: 1010, y: 230, w: 810, font: 24, lh: 40,
+          lines: [
+            "import {",
+            "  BankDetails, withBusinessRegistration",
+            "} from './shared/bank-details.ts'",
+            "",
+            "export const BankForm = withBusinessRegistration(",
+            "  z.object({",
+            "    bankDetails: BankDetails",
+            "  }))",
+          ],
+        });
+        const mArrows = $("#m-arrows");
+        const mA1 = arrow(mArrows, "M628 145 C 300 145, 50 200, 50 400 S 60 628, 96 628", "#ffd85e");
+        const mA2 = arrow(mArrows, "M1295 145 C 1700 145, 1885 200, 1885 380 S 1870 548, 1826 548", "#ffd85e");
+
+        // 6. rule code
+        code("ru-code", {
+          name: "shared/bank-details.ts · the dynamic rule", x: 80, y: 150, w: 1210, font: 24, lh: 44,
+          lines: [
+            "export function withBusinessRegistration (schema) {",
+            "  return schema.refine(",
+            "    value => !(value.bankDetails.accountType === 'business'",
+            "               && !value.bankDetails.registrationNumber),",
+            "    {",
+            "      path: ['bankDetails', 'registrationNumber'],",
+            "      message: REGISTRATION_REQUIRED,",
+            "      when: payload =>",
+            "        ruleInputs.safeParse(payload.value?.bankDetails).success",
+            "    }",
+            "  )",
+            "}",
+            "",
+            "const ruleInputs = BankDetails.pick({ accountType: true, registrationNumber: true })",
+          ],
+        });
+
+        // 7. BFF code
+        code("b-code", {
+          name: "bff/apps/api/src", x: 120, y: 640, w: 1060, font: 24, lh: 42,
+          lines: [
+            "// server.ts: every submit",
+            "const result = check(OrderFormServer, request.body)  // safeParse",
+            "// private-rules.ts",
+            "export const OrderFormServer = OrderForm.superRefine(notBlocked)",
+            "export const BLOCKED_BANK_CODES = new Set(['ZZZZ', 'FAKE'])",
+          ],
+        });
+        const bArrows = $("#b-arrows");
+        const bA = arrow(bArrows, "M420 425 C 640 470, 900 420, 1120 345", "#58c4dd");
+
+        // 8. link
+        code("k-code1", {
+          name: "ui/apps/order-form/package.json", x: 100, y: 170, w: 900, font: 24, lh: 42,
+          lines: [
+            '"dependencies": {',
+            '  "@bff/schemas": "file:../../../bff/packages/schemas",',
+            '  "react-hook-form": "7.91.0",',
+            '  "zod": "4.6.7"',
+            "}",
+            "",
+            "// two real repos: the submodule path",
+            '"@bff/schemas": "file:../../vendor/bff/packages/schemas"',
+            "// pnpm: link:../../vendor/bff/packages/schemas",
+          ],
+        });
+        code("k-code2", {
+          name: "the zod peer", x: 100, y: 170, w: 900, font: 24, lh: 42,
+          lines: [
+            "// bff/packages/schemas/package.json",
+            '"peerDependencies": { "zod": "^4.6.0" }',
+            "",
+            "// ui/apps/shared-federation.mjs",
+            "const require = createRequire(import.meta.url)",
+            "export const resolveFromUi = { alias: {",
+            "  zod: path.dirname(require.resolve('zod/package.json'))",
+            "} }",
+            "",
+            "// every MFE's rsbuild.config.ts",
+            "resolve: resolveFromUi",
+          ],
+        });
+        const kA = $("#k-arrows");
+        const kA1 = arrow(kA, "M190 225 L190 130", "#58c4dd");
+        const kA2 = arrow(kA, "M385 290 L435 290", "#b98fe0");
+        const kA3 = arrow(kA, "M580 355 C 580 410, 520 430, 480 455", "#83c167");
+        const kA2b = $("#k-arrows2");
+        const kZ = arrow(kA2b, "M200 175 C 200 260, 300 280, 360 325", "#83c167");
+
+        // 9. form
+        code("f-code", {
+          name: "ui/apps/order-form/src/OrderForm.tsx", x: 120, y: 150, w: 1680, font: 26, lh: 44,
+          lines: [
+            "import { OrderForm as OrderFormSchema } from '@bff/schemas/order-form'  // compiled in",
+            "",
+            "const form = useForm<OrderFormValues>({",
+            "  mode: 'onTouched',",
+            "  resolver: timed(schemaResolver(OrderFormSchema), setLastCheckMs),",
+            "  defaultValues: { … }",
+            "})",
+          ],
+        });
+
+        // 10. nested
+        const nArrows = $("#n-arrows");
+        const nA1 = arrow(nArrows, "M1085 470 C 1150 470, 1170 380, 1235 352", "#ffd85e");
+        const nA2 = arrow(nArrows, "M1125 220 C 1180 230, 1200 300, 1235 340", "#5cd0b3");
+        const nA3 = arrow(nArrows, "M300 860 C 650 960, 1120 960, 1215 260", "#b98fe0", 3, true);
+
+        // 11. submodule panels
+        code("g-mod", {
+          name: "ui/.gitmodules", x: 80, y: 180, w: 760, font: 25, lh: 44, plain: true,
+          lines: ['[submodule "vendor/bff"]', "    path = vendor/bff", "    url = git@github.com:team/bff.git"],
+        });
+        code("g-tree", {
+          name: "the parent's tree", x: 80, y: 450, w: 760, font: 25, lh: 44, plain: true,
+          lines: ["$ git ls-tree HEAD vendor/bff", "160000 commit 3f9c2e1…  vendor/bff"],
+        });
+        code("g-clone", {
+          name: "terminal", x: 80, y: 180, w: 760, font: 23, lh: 42, plain: true,
+          lines: ["$ git clone --recurse-submodules \\", "      git@github.com:team/ui.git", "", "# or, in an existing clone", "$ git submodule update --init"],
+        });
+        code("g-ci", {
+          name: ".github/workflows/ci.yml", x: 80, y: 520, w: 760, font: 23, lh: 42, plain: true,
+          lines: ["- uses: actions/checkout@v5", "  with:", "    submodules: true", "    token: ${{ secrets.BFF_READ_TOKEN }}"],
+        });
+        code("g-bump", {
+          name: "terminal · the paired UI PR", x: 80, y: 180, w: 760, font: 23, lh: 42, plain: true,
+          lines: ["$ git submodule update --remote vendor/bff", "$ git add vendor/bff", '$ git commit -m "Bump BFF schemas"'],
+        });
+
+        // captions: one element per sentence, timed by its share of the beat's characters
+        const capHost = $("#captions");
+        const caps = [];
+        for (const b of T.beats) {
+          const parts = b.text.match(/[^.?!]+[.?!]+["']?\s*|[^.?!]+$/g) || [b.text];
+          const total = parts.reduce((n, p) => n + p.length, 0);
+          let t = b.start;
+          for (const p of parts) {
+            const d = (b.duration * p.length) / total;
+            const el = document.createElement("div");
+            el.textContent = p.trim();
+            capHost.appendChild(el);
+            caps.push({ el, t, d });
+            t += d;
+          }
+        }
+
+        // chapter labels
+        const chapters = [
+          ["1 · The idea", "hook", "idea"],
+          ["2 · Code walkthrough", "layout", "submit"],
+          ["3 · Git submodules", "sub-what", "sub-pitfalls"],
+          ["4 · Why it works", "why", "why"],
+          ["5 · Best practice", "verdict", "recommend"],
+        ];
+        const chHost = $("#chapter");
+        const chEls = chapters.map(([t]) => { const d = document.createElement("div"); d.textContent = t; chHost.appendChild(d); return d; });
+
+        // ================= Three.js: one renderer, two deterministic scenes =================
+        const g3 = { cam: 0, draw: 0, ring: 0, fill: 1, newC: 0, ptr: 0, mode: 0, spin: 0 };
+        const renderer = new THREE.WebGLRenderer({ canvas: $("#gl"), antialias: true, alpha: true, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(1);
+        renderer.setSize(1920, 1080, false);
+        renderer.setClearColor(0x000000, 0);
+        const scene3 = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(38, 1920 / 1080, 0.1, 100);
+        camera.setViewOffset(1920, 1080, -380, 0, 1920, 1080); // content sits on the right; text on the left
+        scene3.add(new THREE.AmbientLight(0xffffff, 0.75));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+        sun.position.set(4, 8, 7);
+        scene3.add(sun);
+
+        function label(text, color = "#ece9e4", px = 54, worldH = 0.42) {
+          const c = document.createElement("canvas");
+          const ctx = c.getContext("2d");
+          ctx.font = `600 ${px}px "Segoe UI", sans-serif`;
+          const w = Math.ceil(ctx.measureText(text).width) + 24;
+          c.width = w; c.height = Math.ceil(px * 1.4);
+          ctx.font = `600 ${px}px "Segoe UI", sans-serif`;
+          ctx.fillStyle = color; ctx.textBaseline = "middle";
+          ctx.fillText(text, 12, c.height / 2);
+          const tex = new THREE.CanvasTexture(c);
+          tex.colorSpace = THREE.SRGBColorSpace;
+          const m = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+          const s = new THREE.Sprite(m);
+          s.scale.set((worldH * c.width) / c.height, worldH, 1);
+          return s;
+        }
+
+        // --- submodule scene ---
+        const subG = new THREE.Group();
+        scene3.add(subG);
+        const CENTER = new THREE.Vector3(1.5, 0, 0);
+        const cx = (i) => -2.25 + i * 1.25;
+        const commitMat = new THREE.MeshStandardMaterial({ color: 0x58c4dd, emissive: 0x0d3440, roughness: 0.4 });
+        const commits = [];
+        for (let i = 0; i < 7; i++) {
+          const m = new THREE.Mesh(new THREE.SphereGeometry(0.26, 32, 16), commitMat);
+          m.position.set(cx(i), 1.6, 0);
+          subG.add(m);
+          commits.push(m);
+          if (i > 0) {
+            const e = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.25, 12), new THREE.MeshStandardMaterial({ color: 0x2d6f80 }));
+            e.rotation.z = Math.PI / 2;
+            e.position.set(cx(i) - 0.625, 1.6, 0);
+            subG.add(e);
+            if (i === 6) commits.edge6 = e;
+          }
+        }
+        const lblBff = label("BFF repo · commits", "#58c4dd");
+        lblBff.position.set(0.6, 2.45, 0);
+        subG.add(lblBff);
+        const plat = new THREE.Mesh(new THREE.BoxGeometry(6.2, 0.16, 3.0), new THREE.MeshStandardMaterial({ color: 0x15302f, roughness: 0.9 }));
+        plat.position.set(1.4, -1.75, 0);
+        subG.add(plat);
+        const platEdges = new THREE.LineSegments(new THREE.EdgesGeometry(plat.geometry), new THREE.LineBasicMaterial({ color: 0x5cd0b3 }));
+        platEdges.position.copy(plat.position);
+        subG.add(platEdges);
+        const lblUi = label("UI repo (parent)", "#5cd0b3");
+        lblUi.position.set(3.0, -2.25, 1.6);
+        subG.add(lblUi);
+        const FOLDER = new THREE.Vector3(0.6, -1.2, 0.3);
+        const folderGeo = new THREE.BoxGeometry(0.95, 0.9, 0.95);
+        const folderSolid = new THREE.Mesh(folderGeo, new THREE.MeshStandardMaterial({ color: 0x5cd0b3, transparent: true, opacity: 1 }));
+        folderSolid.position.copy(FOLDER);
+        subG.add(folderSolid);
+        const folderWire = new THREE.LineSegments(new THREE.EdgesGeometry(folderGeo), new THREE.LineBasicMaterial({ color: 0x5cd0b3 }));
+        folderWire.position.copy(FOLDER);
+        subG.add(folderWire);
+        const lblFolder = label("vendor/bff", "#ece9e4", 54, 0.36);
+        lblFolder.position.set(-0.75, -0.95, 0.9);
+        subG.add(lblFolder);
+        const lblEmpty = label("empty until init", "#fc6255", 50, 0.32);
+        lblEmpty.position.set(-0.75, -1.4, 0.9);
+        subG.add(lblEmpty);
+        const yellow = new THREE.MeshStandardMaterial({ color: 0xffd85e, emissive: 0x4a3a08 });
+        let ptrMesh = null;
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.32, 20), yellow);
+        subG.add(cone);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 12, 48), yellow);
+        subG.add(ring);
+        const lblOld = label("3f9c2e1", "#ffd85e", 54, 0.36);
+        const lblNew = label("8a41d07", "#ffd85e", 54, 0.36);
+        subG.add(lblOld, lblNew);
+
+        // --- outro scene: one schema, compiled into every bundle ---
+        const outG = new THREE.Group();
+        scene3.add(outG);
+        const crystal = new THREE.Mesh(new THREE.IcosahedronGeometry(1.25, 0), new THREE.MeshStandardMaterial({ color: 0xffd85e, emissive: 0x3a2c05, flatShading: true, roughness: 0.35 }));
+        const crystalWire = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(1.27, 0)), new THREE.LineBasicMaterial({ color: 0xfff2b8 }));
+        const core = new THREE.Group();
+        core.add(crystal, crystalWire);
+        core.position.copy(CENTER);
+        outG.add(core);
+        const orbit = new THREE.Group();
+        orbit.position.copy(CENTER);
+        outG.add(orbit);
+        const sats = [["order-form", 0x83c167], ["bank-form", 0x83c167], ["BFF api", 0xb98fe0]];
+        sats.forEach(([name, col], i) => {
+          const a = (i / sats.length) * Math.PI * 2;
+          const p = new THREE.Vector3(Math.cos(a) * 2.6, Math.sin(a * 2) * 0.35, Math.sin(a) * 2.6);
+          const cube = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.75, 0.75), new THREE.MeshStandardMaterial({ color: col, roughness: 0.5 }));
+          cube.position.copy(p);
+          orbit.add(cube);
+          const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), p]);
+          orbit.add(new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x8a909b })));
+          const l = label(name, "#ece9e4", 54, 0.36);
+          l.position.copy(p).add(new THREE.Vector3(0, 0.7, 0));
+          orbit.add(l);
+        });
+
+        function render3d() {
+          const sub = g3.mode < 0.5;
+          subG.visible = sub;
+          outG.visible = !sub;
+          if (sub) {
+            camera.setViewOffset(1920, 1080, -380, 0, 1920, 1080);
+            const a = -0.35 + g3.cam * 0.7;
+            camera.position.set(CENTER.x + Math.sin(a) * 12.6, 3.0, Math.cos(a) * 12.6);
+            camera.lookAt(CENTER.x, 0.1, 0);
+            commits[6].scale.setScalar(Math.max(0.001, g3.newC));
+            commits.edge6.scale.set(1, Math.max(0.001, g3.newC), 1);
+            folderSolid.material.opacity = 0.15 + 0.85 * g3.fill;
+            lblEmpty.material.opacity = 1 - g3.fill;
+            // pointer: from the folder to the pinned commit, moving from commit 3 to commit 6 on a bump
+            const tx = cx(3) + (cx(6) - cx(3)) * g3.ptr;
+            const from = FOLDER.clone().add(new THREE.Vector3(0, 0.45, 0));
+            const to = new THREE.Vector3(tx, 1.3, 0);
+            const mid = new THREE.Vector3((from.x + tx) / 2, 0.45, 0.9);
+            const curve = new THREE.QuadraticBezierCurve3(from, mid, to);
+            if (ptrMesh) { subG.remove(ptrMesh); ptrMesh.geometry.dispose(); ptrMesh = null; }
+            const dr = g3.draw;
+            if (dr > 0.01) {
+              const pts = [];
+              for (let i = 0; i <= 40; i++) pts.push(curve.getPoint((i / 40) * dr));
+              ptrMesh = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 48, 0.05, 10, false), yellow);
+              subG.add(ptrMesh);
+              const tip = curve.getPoint(dr), tan = curve.getTangent(dr);
+              cone.position.copy(tip);
+              cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tan.normalize());
+              cone.visible = true;
+            } else cone.visible = false;
+            ring.position.set(tx, 1.6, 0);
+            ring.scale.setScalar(Math.max(0.001, g3.ring));
+            ring.lookAt(camera.position);
+            lblOld.position.set(cx(3), 2.3, 0.4);
+            lblNew.position.set(cx(6), 2.3, 0.4);
+            lblOld.material.opacity = g3.ring * (1 - g3.ptr);
+            lblNew.material.opacity = g3.ring * g3.ptr;
+          } else {
+            camera.setViewOffset(1920, 1080, -520, 0, 1920, 1080);
+            camera.position.set(CENTER.x, 2.4, 12);
+            camera.lookAt(CENTER.x, 0, 0);
+            core.rotation.set(g3.spin * 1.2, g3.spin * 3.4, 0);
+            orbit.rotation.y = g3.spin * 2.2;
+          }
+          renderer.render(scene3, camera);
+        }
+
+        // ================= timeline =================
+        const tl = gsap.timeline({ paused: true });
+        const show = (sel, t0, d = 0.4) => tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: d, ease: "power1.out" }, t0);
+        const hide = (sel, t0, d = 0.35) => tl.to(sel, { opacity: 0, duration: d, ease: "power1.in" }, t0);
+        const rise = (sel, t0, extra = {}) => tl.fromTo(sel, { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6, ease: "power3.out", ...extra }, t0);
+        const pop = (sel, t0) => tl.fromTo(sel, { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, t0);
+        const dim = (sel, t0, to = 0.3) => tl.to(sel, { opacity: to, duration: 0.4 }, t0);
+        const drawA = (a, t0, d = 0.6) => {
+          tl.set(a.g, { opacity: 1 }, t0);
+          if (a.dashed) tl.fromTo(a.p, { opacity: 0 }, { opacity: 1, duration: d }, t0);
+          else tl.fromTo(a.p, { attr: { "stroke-dashoffset": 1 } }, { attr: { "stroke-dashoffset": 0 }, duration: d, ease: "power2.inOut" }, t0);
+          tl.to(a.head, { opacity: 1, duration: 0.15 }, t0 + d - 0.1);
+        };
+        const scene = (sel, a, b) => {
+          tl.fromTo(sel, { opacity: 0 }, { opacity: 1, duration: 0.4 }, Math.max(0, S(a) - 0.3));
+          tl.to(sel, { opacity: 0, duration: 0.35 }, E(b) + 0.15);
+        };
+        // move a panel's highlight bar onto lines [from..to]
+        const mark = (hostId, from, to, t0) => {
+          const { box, lh } = panels[hostId];
+          const y = from * lh, sy = to - from + 1;
+          if (!box.dataset.used) { gsap.set(box, { top: 58, height: lh, y, scaleY: sy, transformOrigin: "50% 0%" }); box.dataset.used = 1; }
+          tl.to(box, { opacity: 1, y, scaleY: sy, duration: 0.45, ease: "power2.inOut" }, t0);
+        };
+        const unmark = (hostId, t0) => tl.to(panels[hostId].box, { opacity: 0, duration: 0.3 }, t0);
+
+        // grid backdrop
+        show("#grid", 0, 1.0);
+
+        // chapters
+        chapters.forEach(([, a, b], i) => { show(chEls[i], S(a) - 0.2); hide(chEls[i], E(b) + 0.15); });
+        // captions
+        for (const c of caps) { tl.fromTo(c.el, { opacity: 0 }, { opacity: 1, duration: 0.18 }, c.t); tl.to(c.el, { opacity: 0, duration: 0.15 }, c.t + c.d - 0.1); }
+
+        // 1. two repos, one rule ------------------------------------------
+        scene("#s-repos", "hook", "problem");
+        gsap.set(["#r-copyA", "#r-copyB", "#r-copyB2", "#r-drift", "#r-pkg", "#r-pkgx"], { opacity: 0 });
+        rise("#r-bff", S("hook"));
+        rise("#r-ui", S("hook") + 0.25);
+        pop("#r-rule", at("hook", 0.22));
+        drawA(rA1, at("hook", 0.5));
+        drawA(rA2, at("hook", 0.56));
+        rise("#r-q", at("hook", 0.78));
+        hide(["#r-q", rA1.g, rA2.g], S("problem"));
+        hide("#r-rule", S("problem") + 0.1);
+        tl.fromTo("#r-copyA", { opacity: 0, x: 635 }, { opacity: 1, x: 0, duration: 0.7, ease: "power3.inOut" }, S("problem") + 0.1);
+        tl.fromTo("#r-copyB", { opacity: 0, x: -635 }, { opacity: 1, x: 0, duration: 0.7, ease: "power3.inOut" }, S("problem") + 0.1);
+        hide("#r-copyB", at("problem", 0.2), 0.3);
+        show("#r-copyB2", at("problem", 0.2), 0.3);
+        pop("#r-drift", at("problem", 0.28));
+        dim(["#r-copyA", "#r-copyB2", "#r-drift"], at("problem", 0.48), 0.3);
+        rise("#r-pkg", at("problem", 0.5));
+        tl.to("#r-strike", { attr: { "stroke-dashoffset": 0 }, duration: 0.5, ease: "power2.inOut" }, at("problem", 0.74));
+        show("#r-pkgx", at("problem", 0.76));
+
+        // 2. the idea --------------------------------------------------------
+        scene("#s-idea", "idea", "idea");
+        rise("#i-title", S("idea") - 0.1);
+        rise("#i-n1", at("idea", 0.1));
+        drawA(iA[0], at("idea", 0.24), 0.4);
+        rise("#i-n2", at("idea", 0.26));
+        drawA(iA[1], at("idea", 0.33), 0.4);
+        rise("#i-n3", at("idea", 0.35));
+        drawA(iA[2], at("idea", 0.5), 0.4);
+        rise("#i-n4", at("idea", 0.52));
+        drawA(iA[3], at("idea", 0.6), 0.4);
+        drawA(iA[4], at("idea", 0.62), 0.4);
+        rise("#i-n5a", at("idea", 0.62));
+        rise("#i-n5b", at("idea", 0.64));
+        // a schema glyph travels from the BFF repo into both bundles
+        gsap.set(["#i-dotA", "#i-dotB"], { opacity: 0, x: 270, y: 470 });
+        tl.set(["#i-dotA", "#i-dotB"], { opacity: 1 }, at("idea", 0.66));
+        tl.to("#i-dotA", { keyframes: [{ x: 1030, y: 470, duration: 1.0 }, { x: 1425, y: 470, duration: 0.5 }, { x: 1825, y: 385, duration: 0.5 }], ease: "none" }, at("idea", 0.66));
+        tl.to("#i-dotB", { keyframes: [{ x: 1030, y: 470, duration: 1.0 }, { x: 1425, y: 470, duration: 0.5 }, { x: 1825, y: 605, duration: 0.5 }], ease: "none" }, at("idea", 0.66));
+        pop("#i-c1", at("idea", 0.8));
+        pop("#i-c2", at("idea", 0.86));
+        pop("#i-c3", at("idea", 0.92));
+
+        // 3. layout ----------------------------------------------------------
+        scene("#s-layout", "layout", "layout");
+        rise("#l-title", S("layout") - 0.1);
+        treeRows.forEach((_, i) => rise(`#lt${i}`, at("layout", 0.04 + i * 0.035)));
+        tl.to("#lt2", { backgroundColor: "rgba(255,216,94,0.12)", duration: 0.3 }, at("layout", 0.3));
+        gsap.set(["#l-rule", "#l-nocopy", "#l-ci"], { opacity: 0 });
+        tl.fromTo("#l-pill", { opacity: 0, x: 0, y: 0 }, { opacity: 1, duration: 0.4 }, at("layout", 0.5));
+        drawA(lAneed, at("layout", 0.6), 0.4);
+        tl.to("#l-pill", { y: -64, x: 0, duration: 0.6, ease: "power3.inOut" }, at("layout", 0.68));
+        hide(lAneed.g, at("layout", 0.68));
+        drawA(lA1, at("layout", 0.74), 0.4);
+        drawA(lA2, at("layout", 0.76), 0.4);
+        rise("#l-rule", at("layout", 0.56));
+        rise("#l-nocopy", at("layout", 0.86));
+        tl.to("#l-strike", { scaleX: 1, duration: 0.4, ease: "power2.inOut" }, at("layout", 0.92));
+        rise("#l-ci", at("layout", 0.94));
+
+        // 4. shared ----------------------------------------------------------
+        scene("#s-shared", "shared", "shared");
+        rise("#sh-code .code", S("shared") - 0.1);
+        mark("sh-code", 4, 4, at("shared", 0.08));
+        mark("sh-code", 5, 5, at("shared", 0.22)); pop("#shn0", at("shared", 0.24));
+        mark("sh-code", 6, 6, at("shared", 0.3)); pop("#shn1", at("shared", 0.32));
+        mark("sh-code", 7, 7, at("shared", 0.38)); pop("#shn2", at("shared", 0.4));
+        mark("sh-code", 8, 8, at("shared", 0.48)); pop("#shn3", at("shared", 0.5));
+        mark("sh-code", 9, 9, at("shared", 0.58)); pop("#shn4", at("shared", 0.6));
+        mark("sh-code", 4, 10, at("shared", 0.72)); pop("#shn5", at("shared", 0.74));
+
+        // 5. MFE files -------------------------------------------------------
+        scene("#s-mfe", "mfe-files", "mfe-files");
+        rise("#m-src", S("mfe-files") - 0.1);
+        rise("#m-left .code", S("mfe-files"));
+        mark("m-left", 6, 7, at("mfe-files", 0.14));
+        mark("m-left", 8, 8, at("mfe-files", 0.3));
+        drawA(mA1, at("mfe-files", 0.32), 0.6);
+        rise("#m-right .code", at("mfe-files", 0.45));
+        mark("m-right", 6, 6, at("mfe-files", 0.58));
+        drawA(mA2, at("mfe-files", 0.6), 0.6);
+        rise("#m-tag", at("mfe-files", 0.78));
+
+        // 6. dynamic rule + when ---------------------------------------------
+        scene("#s-rule", "dynamic", "when");
+        rise("#ru-code .code", S("dynamic") - 0.1);
+        gsap.set(["#ru-a", "#ru-z", "#ru-b"], { opacity: 0 });
+        mark("ru-code", 2, 3, at("dynamic", 0.08));
+        show("#ru-a", at("dynamic", 0.1));
+        gsap.set(["#ru-a1", "#ru-a2", "#ru-a3", "#ru-a4"], { opacity: 0 });
+        rise("#ru-a1", at("dynamic", 0.12));
+        rise("#ru-a2", at("dynamic", 0.2));
+        mark("ru-code", 0, 11, at("dynamic", 0.32));
+        rise("#ru-a3", at("dynamic", 0.36));
+        rise("#ru-a4", at("dynamic", 0.4));
+        rise("#ru-z", at("dynamic", 0.58));
+        hide(["#ru-a", "#ru-z"], S("when") - 0.1);
+        show("#ru-b", S("when") + 0.2);
+        gsap.set(["#ru-b1", "#ru-b2"], { opacity: 0 });
+        tl.fromTo("#ru-nan", { backgroundColor: "rgba(252,98,85,0)" }, { backgroundColor: "rgba(252,98,85,0.18)", duration: 0.4 }, at("when", 0.3));
+        rise("#ru-b1", at("when", 0.2));
+        mark("ru-code", 7, 8, at("when", 0.45));
+        mark("ru-code", 13, 13, at("when", 0.66));
+        rise("#ru-b2", at("when", 0.6));
+
+        // 7. BFF side --------------------------------------------------------
+        scene("#s-bff", "bff-side", "bff-side");
+        gsap.set("#b-scan", { opacity: 0 });
+        rise("#b-left", S("bff-side") - 0.1);
+        rise("#b-right", at("bff-side", 0.06));
+        drawA(bA, at("bff-side", 0.12), 0.7);
+        rise("#b-code .code", at("bff-side", 0.2));
+        mark("b-code", 1, 1, at("bff-side", 0.24));
+        mark("b-code", 3, 4, at("bff-side", 0.42));
+        tl.to("#b-priv", { color: "#b98fe0", duration: 0.3 }, at("bff-side", 0.42));
+        tl.to("#b-fence", { opacity: 1, duration: 0.4 }, at("bff-side", 0.6));
+        tl.fromTo("#b-left", { boxShadow: "0 0 0 0 rgba(88,196,221,0)" }, { boxShadow: "0 0 0 8px rgba(88,196,221,0.25)", duration: 0.5 }, at("bff-side", 0.6));
+        pop("#b-scan", at("bff-side", 0.8));
+
+        // 8. link + zod peer ---------------------------------------------------
+        scene("#s-link", "link", "zod-peer");
+        gsap.set(["#k-d2", "#k-code2"], { opacity: 0 });
+        rise("#k-code1", S("link") - 0.1);
+        mark("k-code1", 1, 1, at("link", 0.1));
+        rise("#k-f", at("link", 0.12));
+        rise("#k-m", at("link", 0.18));
+        drawA(kA1, at("link", 0.22), 0.4);
+        mark("k-code1", 6, 8, at("link", 0.4));
+        rise("#k-b", at("link", 0.6));
+        drawA(kA2, at("link", 0.62), 0.3);
+        rise("#k-out", at("link", 0.74));
+        drawA(kA3, at("link", 0.74), 0.4);
+        hide(["#k-d1", "#k-code1"], S("zod-peer") - 0.15);
+        show("#k-code2", S("zod-peer") + 0.15);
+        show("#k-d2", S("zod-peer") + 0.15);
+        gsap.set(["#k-uz", "#k-ok"], { opacity: 0 });
+        mark("k-code2", 1, 1, at("zod-peer", 0.3));
+        rise("#k-uz", at("zod-peer", 0.46));
+        drawA(kZ, at("zod-peer", 0.46), 0.5);
+        mark("k-code2", 4, 7, at("zod-peer", 0.48));
+        pop("#k-ok", at("zod-peer", 0.78));
+
+        // 9. resolver + onTouched ----------------------------------------------
+        scene("#s-form", "resolver", "resolver");
+        gsap.set(["#f-std", "#f-demo", "#f-v2", "#f-err", "#f-okk", "#f-s1", "#f-s2", "#f-s3"], { opacity: 0 });
+        rise("#f-code .code", S("resolver") - 0.1);
+        mark("f-code", 4, 4, at("resolver", 0.06));
+        rise("#f-std", at("resolver", 0.22));
+        mark("f-code", 3, 3, at("resolver", 0.62));
+        show("#f-demo", at("resolver", 0.62));
+        show("#f-s1", at("resolver", 0.64));
+        tl.fromTo("#f-v1", { opacity: 0 }, { opacity: 1, duration: 0.3 }, at("resolver", 0.64));
+        show("#f-s2", at("resolver", 0.76));
+        show("#f-err", at("resolver", 0.78));
+        show("#f-s3", at("resolver", 0.88));
+        hide(["#f-v1", "#f-err"], at("resolver", 0.92), 0.2);
+        show(["#f-v2", "#f-okk"], at("resolver", 0.92), 0.2);
+
+        // 10. nested + submit ---------------------------------------------------
+        scene("#s-nest", "nested", "submit");
+        gsap.set(["#n-bus", "#n-reg", "#n-trig", "#n-flow", "#n-ctx", "#n-scope"], { opacity: 0 });
+        rise("#n-host", S("nested") - 0.1);
+        rise("#n-bank", at("nested", 0.08));
+        rise("#n-ctx", at("nested", 0.22));
+        drawA(nA1, at("nested", 0.24), 0.4);
+        rise("#n-scope", at("nested", 0.38));
+        drawA(nA2, at("nested", 0.42), 0.4);
+        tl.fromTo("#n-rhf", { backgroundColor: "rgba(255,216,94,0)" }, { backgroundColor: "rgba(255,216,94,0.16)", duration: 0.4 }, at("nested", 0.45));
+        hide("#n-pers", at("nested", 0.74), 0.2);
+        show("#n-bus", at("nested", 0.74), 0.2);
+        rise("#n-reg", at("nested", 0.78));
+        rise("#n-trig", at("nested", 0.84));
+        hide(["#n-scope", "#n-ctx", nA1.g, nA2.g], S("submit") - 0.1);
+        gsap.set(["#n-201", "#n-422"], { opacity: 0 });
+        tl.fromTo("#n-btn", { scale: 1 }, { scale: 1.12, duration: 0.25, yoyo: true, repeat: 1 }, at("submit", 0.04));
+        drawA(nA3, at("submit", 0.08), 0.6);
+        show("#n-flow", at("submit", 0.12));
+        pop("#n-201", at("submit", 0.3));
+        rise("#n-422", at("submit", 0.58));
+
+        // 11. git submodules (WebGL + overlays) ---------------------------------
+        scene("#s-sub", "sub-what", "sub-pitfalls");
+        tl.fromTo("#gl", { opacity: 0 }, { opacity: 1, duration: 0.6 }, S("sub-what") - 0.3);
+        tl.to(g3, { cam: 1, duration: E("sub-pitfalls") - S("sub-what"), ease: "none" }, S("sub-what"));
+        gsap.set(["#g-mod", "#g-tree", "#g-pin", "#g-clone", "#g-ci", "#g-bump", "#g-prs", "#g-pits"], { opacity: 0 });
+        rise("#g-title", S("sub-what") - 0.1);
+        rise("#g-def", at("sub-what", 0.2));
+        tl.to(g3, { draw: 1, duration: 1.0, ease: "power2.inOut" }, at("sub-what", 0.62));
+        hide(["#g-title", "#g-def"], S("sub-files") - 0.1);
+        rise("#g-mod", S("sub-files") + 0.1);
+        mark("g-mod", 1, 2, at("sub-files", 0.2));
+        rise("#g-tree", at("sub-files", 0.5));
+        mark("g-tree", 1, 1, at("sub-files", 0.62));
+        tl.to(g3, { ring: 1, duration: 0.5, ease: "back.out(2)" }, at("sub-files", 0.66));
+        rise("#g-pin", at("sub-files", 0.8));
+        hide(["#g-mod", "#g-tree", "#g-pin"], S("sub-clone") - 0.1);
+        tl.to(g3, { fill: 0, duration: 0.4 }, S("sub-clone"));
+        rise("#g-clone", S("sub-clone") + 0.1);
+        mark("g-clone", 0, 1, at("sub-clone", 0.16));
+        mark("g-clone", 4, 4, at("sub-clone", 0.3));
+        tl.to(g3, { fill: 1, duration: 0.8, ease: "power2.out" }, at("sub-clone", 0.4));
+        rise("#g-ci", at("sub-clone", 0.62));
+        mark("g-ci", 2, 3, at("sub-clone", 0.72));
+        hide(["#g-clone", "#g-ci"], S("sub-bump") - 0.1);
+        rise("#g-bump", S("sub-bump") + 0.1);
+        tl.to(g3, { newC: 1, duration: 0.6, ease: "back.out(1.6)" }, at("sub-bump", 0.08));
+        mark("g-bump", 0, 0, at("sub-bump", 0.2));
+        tl.to(g3, { ptr: 1, duration: 1.4, ease: "power2.inOut" }, at("sub-bump", 0.24));
+        mark("g-bump", 1, 2, at("sub-bump", 0.4));
+        rise("#g-prs", at("sub-bump", 0.5));
+        hide(["#g-bump", "#g-prs"], S("sub-pitfalls") - 0.1);
+        tl.to("#gl", { opacity: 0.18, duration: 0.5 }, S("sub-pitfalls") - 0.1);
+        show("#g-pits", S("sub-pitfalls") + 0.1);
+        gsap.set(["#g-p1", "#g-p2", "#g-p3"], { opacity: 0 });
+        rise("#g-p1", at("sub-pitfalls", 0.08));
+        rise("#g-p2", at("sub-pitfalls", 0.36));
+        rise("#g-p3", at("sub-pitfalls", 0.7));
+        tl.to("#gl", { opacity: 0, duration: 0.35 }, E("sub-pitfalls") + 0.15);
+
+        // 12. why --------------------------------------------------------------
+        scene("#s-why", "why", "why");
+        gsap.set(["#w1", "#w2", "#w3", "#w3a", "#w3b", "#w3c", "#w3d"], { opacity: 0 });
+        rise("#w1", at("why", 0.08));
+        rise("#w2", at("why", 0.32));
+        rise("#w3", at("why", 0.55));
+        ["#w3a", "#w3b", "#w3c", "#w3d"].forEach((s, i) => pop(s, at("why", 0.64 + i * 0.07)));
+
+        // 13. verdict ------------------------------------------------------------
+        scene("#s-verdict", "verdict", "verdict");
+        gsap.set(["#v1", "#v2"], { opacity: 0 });
+        rise("#v1", at("verdict", 0.3));
+        rise("#v2", at("verdict", 0.62));
+
+        // 14. ranking -------------------------------------------------------------
+        scene("#s-rank", "ranking", "ranking");
+        gsap.set(["#rk1", "#rk2", "#rk3", "#rk4", "#rk5"], { opacity: 0 });
+        rise("#rk1", at("ranking", 0.14));
+        rise("#rk2", at("ranking", 0.42));
+        rise("#rk3", at("ranking", 0.5));
+        rise("#rk4", at("ranking", 0.84));
+        rise("#rk5", at("ranking", 0.9), { opacity: 0.6 });
+
+        // 15. pitfalls + advantages -------------------------------------------------
+        scene("#s-trade", "pitfalls", "advantages");
+        gsap.set(["#t-p1", "#t-p2", "#t-p3", "#t-p4", "#t-a1", "#t-a2", "#t-a3", "#t-a4", "#t-ah"], { opacity: 0 });
+        rise("#t-ph", S("pitfalls") - 0.1);
+        rise("#t-p1", at("pitfalls", 0.1));
+        rise("#t-p2", at("pitfalls", 0.47));
+        rise("#t-p3", at("pitfalls", 0.66));
+        rise("#t-p4", at("pitfalls", 0.8));
+        rise("#t-ah", S("advantages") - 0.1);
+        rise("#t-a1", at("advantages", 0.1));
+        rise("#t-a2", at("advantages", 0.3));
+        rise("#t-a3", at("advantages", 0.56));
+        rise("#t-a4", at("advantages", 0.78));
+
+        // 16. recommendation ----------------------------------------------------------
+        scene("#s-rec", "recommend", "recommend");
+        gsap.set(["#re-c1", "#re-c2", "#re-rev", "#re-b1", "#re-b2", "#re-b3"], { opacity: 0 });
+        rise("#re-keep", at("recommend", 0.08));
+        pop("#re-c1", at("recommend", 0.16));
+        pop("#re-c2", at("recommend", 0.3));
+        rise("#re-rev", at("recommend", 0.45));
+        rise("#re-b1", at("recommend", 0.55));
+        rise("#re-b2", at("recommend", 0.68));
+        rise("#re-b3", at("recommend", 0.8));
+
+        // 17. outro ----------------------------------------------------------------------
+        tl.set(g3, { mode: 1 }, S("outro") - 0.4);
+        tl.fromTo("#gl", { opacity: 0 }, { opacity: 1, duration: 0.6 }, S("outro") - 0.3);
+        tl.fromTo(g3, { spin: 0 }, { spin: 1, duration: T.total - S("outro") + 0.3, ease: "none" }, S("outro") - 0.3);
+        tl.fromTo("#s-outro", { opacity: 0 }, { opacity: 1, duration: 0.4 }, S("outro") - 0.3);
+        gsap.set(["#o1", "#o2", "#o3", "#o4"], { opacity: 0 });
+        rise("#o1", at("outro", 0.02));
+        rise("#o2", at("outro", 0.3));
+        rise("#o3", at("outro", 0.55));
+        rise("#o4", at("outro", 0.9));
+
+        tl.set({}, {}, T.total);
+        // every seek re-renders the WebGL frame from the proxy, so rendering is deterministic
+        tl.eventCallback("onUpdate", render3d);
+        render3d();
+        window.__timelines = window.__timelines || {};
+        window.__timelines["schema-sharing-explainer"] = tl;
+      </script>
+    </div>
+  </body>
+</html>
